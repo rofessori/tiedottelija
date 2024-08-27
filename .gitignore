@@ -1,12 +1,14 @@
 # ooooo secrets o_0
-tiedottelija/secrets/
+secrets/
+
 .env
 
 # node.js deps
 node_modules/
 
 # build outputs (later)
-dist/
+# dist/
+
 build/
 
 # logs

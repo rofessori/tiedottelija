@@ -11,16 +11,15 @@ tiedottelija on full-stack-sovellus (opiskelija)tapahtumien ja toiminnan viestie
 
 ### ohje rakentamiseen
 
-asenna riippuvuudet ja käynnistä palvelimet:
+checkkaa ensin oikeudet ja chmod +x, sitten asenna riippuvuudet ja käynnistä palvelimet:
 
 ```bash
-cd frontend
-npm install
-npm start
-cd backend
-npm install
-npm run dev
+./setup.sh
+./setup2.sh
+./reboot.sh
 ```
+
+### lopuksi
 
 luo juureen /secrets -kansio, johon viskaat avaimet .env nimeysjärjestyksen mukaan
 

@@ -1,0 +1,16 @@
+# ooooo secrets o_0
+tiedottelija/secrets/
+.env
+
+# node.js deps
+node_modules/
+
+# build outputs (later)
+dist/
+build/
+
+# logs
+*.log
+
+# macOS specific files
+.DS_Store

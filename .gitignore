@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # ooooo secrets o_0
 tiedottelija/secrets/
 .env
@@ -14,3 +15,5 @@ build/
 
 # macOS specific files
 .DS_Store
+=======
+>>>>>>> origin/main

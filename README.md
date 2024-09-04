@@ -1,51 +1,22 @@
 # tiedottelija
 
-tiedottelija on full-stack-sovellus (opiskelija)tapahtumien ja toiminnan viestien automatisointiin. sovellus tiivistää ja kääntää pitkät tekstit käyttäen chatgpt:tä ja lähettää ne telegram-bottiin, joka hoitaa viestien moderoinnin ja välittämisen telegram-kanavalle.
+tiedottelija on full-stack-sovellus (opiskelija)tapahtumien ja toiminnan viestien automatisointiin. Sovellus tiivistää ja kääntää pitkät tekstit käyttäen ChatGPT:tä ja lähettää ne Telegram-bottiin, joka hoitaa viestien moderoinnin ja välittämisen Telegram-kanavalle.
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-=======
->>>>>>> origin/main
-sovelluksen ja sen koodin käyttämisestä määräävät documents/ -kansion tietosuojaseloste sekä käyttöehdot.
+Sovelluksen ja sen koodin käyttämisestä määräävät `documents/`-kansion tietosuojaseloste sekä käyttöehdot. Sovelluksen käyttö kaupallisiin tarkoituksiin on ehdottomasti kielletty.
 
-sovelluksen käyttö kaupallisiin tarkoituksiin on ehdottomasti kielletty.
+## Setuppaus
 
-<<<<<<< HEAD
->>>>>>> 219365be (docus and calendar intg.)
-=======
->>>>>>> origin/main
-## setuppaus
-### deps
+### Deps
 
-- node.js
+- Node.js
 - npm
-- docker
+- Docker
 
-### ohje rakentamiseen
+### Ohje rakentamiseen
 
-checkkaa ensin oikeudet ja chmod +x, sitten asenna riippuvuudet ja käynnistä palvelimet:
+Checkkaa ensin oikeudet ja `chmod +x`, sitten asenna riippuvuudet ja käynnistä palvelimet:
 
 ```bash
 ./setup.sh
 ./setup2.sh
 ./reboot.sh
-```
-
-### lopuksi
-
-luo juureen /secrets -kansio, johon viskaat avaimet .env nimeysjärjestyksen mukaan
-
-apien ohjeet googlesta.
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-tuki: tg @kuumavesivaraaja
-=======
-tuki: 
-tg @kahvirulla
->>>>>>> 219365be (docus and calendar intg.)
-=======
-tuki: 
-tg @kahvirulla
->>>>>>> origin/main

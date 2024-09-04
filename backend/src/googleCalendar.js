@@ -1,5 +1,6 @@
 const { google } = require('googleapis');
 const fs = require('fs');
+const readline = require('readline');
 
 const SCOPES = ['https://www.googleapis.com/auth/calendar.events'];
 const CREDENTIALS_PATH = '/app/secrets/google_credentials.json';
@@ -17,7 +18,7 @@ function authorize() {
     oAuth2Client.setCredentials(token);
     auth = oAuth2Client;
   } else {
-    getAccessToken(oAuth2Client);
+    return getAccessToken(oAuth2Client);
   }
 }
 
@@ -27,7 +28,23 @@ function getAccessToken(oAuth2Client) {
     scope: SCOPES,
   });
   console.log('Authorize this app by visiting this url:', authUrl);
-  // You'll need to manually complete the authorization flow and save the token
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  return new Promise((resolve, reject) => {
+    rl.question('Enter the code from that page here: ', (code) => {
+      rl.close();
+      oAuth2Client.getToken(code, (err, token) => {
+        if (err) return reject(err);
+        oAuth2Client.setCredentials(token);
+        fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));
+        console.log('Token stored to', TOKEN_PATH);
+        auth = oAuth2Client;
+        resolve(oAuth2Client);
+      });
+    });
+  });
 }
 
 function addEventToCalendar(event) {
@@ -35,7 +52,6 @@ function addEventToCalendar(event) {
     console.error('Authentication not set up. Run authorize() first.');
     return;
   }
-
   const calendar = google.calendar({ version: 'v3', auth });
   calendar.events.insert({
     calendarId: 'primary',

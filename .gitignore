@@ -1,6 +1,8 @@
 # Ignore secrets and environment files
 secrets/
 .env
+*.env
+**/secrets/*.json
 
 # Ignore Node.js dependencies
 node_modules/
@@ -11,10 +13,24 @@ build/
 
 # Ignore logs
 *.log
+logs/
 
 # Ignore macOS-specific files
 .DS_Store
 
+# Ignore IDE-specific files
+.vscode/
+.idea/
+*.code-workspace
+
+# Ignore OS-specific files
+Thumbs.db
+
 # Ignore Git LFS BFG and mirror directories
 tiedottelija.git/
 tiedottelija.git.bfg-report/
+
+# Ignore other temporary files and directories
+tmp/
+*.tmp
+*.swp

@@ -1,11 +1,14 @@
-version: '3'
+version: '3.8'
 services:
   frontend:
     build: ./frontend
     ports:
       - "3000:3000"
     environment:
-      - REACT_APP_API_URL=${REACT_APP_API_URL}
+      - REACT_APP_API_URL=http://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
       - backend
 
@@ -14,4 +17,13 @@ services:
     ports:
       - "3001:3001"
     environment:
-      - PORT=${PORT}
+      - PORT=3001
+      - OPENAI_API_KEY_FILE=/app/secrets/openai_api_key
+      - TELEGRAM_BOT_TOKEN_FILE=/app/secrets/telegram_bot_token
+      - TELEGRAM_CHANNEL_ID_FILE=/app/secrets/telegram_channel_id
+    env_file:
+      - .env
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+      - ~/tiedottaja/secrets:/app/secrets:ro

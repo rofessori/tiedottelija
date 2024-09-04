@@ -2,22 +2,50 @@ const TelegramBot = require('node-telegram-bot-api');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const OpenAI = require('openai');
+const path = require('path');
 const adminCredentials = require('./adminCredentials');
 const { authorize, addEventToCalendar } = require('./googleCalendar');
 
 dotenv.config();
-authorize();
 
-const readSecret = (filepath) => fs.readFileSync(filepath, 'utf8').trim();
+// Error handling for loading Google credentials
+const credentialsPath = path.join(__dirname, '../secrets/google_credentials.json');
+let googleCredentials;
 
+try {
+  googleCredentials = fs.readFileSync(credentialsPath, 'utf8');
+} catch (err) {
+  console.error('Failed to load Google credentials:', err);
+  process.exit(1); // Exit the application if credentials are missing
+}
+
+// Google Calendar Authorization
+authorize().then(() => {
+  console.log('Google Calendar authorized');
+}).catch(console.error);
+
+const readSecret = (filepath) => {
+  if (!filepath) {
+    console.error('File path is not defined or environment variable is missing.');
+    process.exit(1);
+  }
+  try {
+    return fs.readFileSync(filepath, 'utf8').trim();
+  } catch (err) {
+    console.error(`Failed to read secret from ${filepath}:`, err);
+    process.exit(1); // Exit if the secret cannot be read
+  }
+};
+
+
+// OpenAI Initialization
 const openai = new OpenAI({
   apiKey: readSecret(process.env.OPENAI_API_KEY_FILE),
 });
 
-
+// Telegram Bot Initialization
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
 let TELEGRAM_CHANNEL_ID = readSecret(process.env.TELEGRAM_CHANNEL_ID_FILE);
-
 
 const SUPER_ADMIN = '@kahvirulla';
 let operators = [SUPER_ADMIN];
@@ -29,7 +57,6 @@ let bigBuffer = 0;
 let lastMessageTime = 0;
 let moderationQueue = [];
 let adminMode = {};
-
 
 const generateAnnouncement = async (message) => {
   const prompt = `Create an announcement for a student organization event in the following format:
@@ -64,11 +91,11 @@ Ensure the announcement is concise, informative, and engaging.`;
 
     const response = completion.choices[0].message.content.trim();
     const [announcement, eventDetails] = response.split('EVENT DETAILS:');
-    
+
     return { announcement: announcement.trim(), eventDetails: eventDetails.trim() };
   } catch (error) {
     if (error.code === 'insufficient_quota') {
-      return { 
+      return {
         announcement: `Error: OpenAI API quota exceeded. Please try again later or contact the administrator.\n\nOriginal message:\n${message}`,
         eventDetails: null
       };

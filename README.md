@@ -20,3 +20,15 @@ Checkkaa ensin oikeudet ja `chmod +x`, sitten asenna riippuvuudet ja käynnistä
 ./setup.sh
 ./setup2.sh
 ./reboot.sh
+
+### Botti telegramissa
+
+Luo itse. OP:lla käytössä @tiedottelija_bot
+
+### lopuksi
+
+luo juureen /secrets -kansio, johon viskaat avaimet .env nimeysjärjestyksen mukaan
+
+apien ohjeet googlesta.
+
+tuki: tg @kuumavesivaraaja

@@ -1,19 +1,20 @@
-<<<<<<< HEAD
-# ooooo secrets o_0
-tiedottelija/secrets/
+# Ignore secrets and environment files
+secrets/
 .env
 
-# node.js deps
+# Ignore Node.js dependencies
 node_modules/
 
-# build outputs (later)
+# Ignore build outputs
 dist/
 build/
 
-# logs
+# Ignore logs
 *.log
 
-# macOS specific files
+# Ignore macOS-specific files
 .DS_Store
-=======
->>>>>>> origin/main
+
+# Ignore Git LFS BFG and mirror directories
+tiedottelija.git/
+tiedottelija.git.bfg-report/

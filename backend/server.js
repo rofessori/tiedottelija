@@ -1,4 +1,4 @@
-// File: ~/tiedottaja/backend/src/server.js
+/* File: ~/tiedottaja/backend/src/server.js
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -42,3 +42,5 @@ app.post('/api/process-message', async (req, res) => {
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+*/

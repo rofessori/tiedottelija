@@ -37,7 +37,6 @@ const readSecret = (filepath) => {
   }
 };
 
-
 // OpenAI Initialization
 const openai = new OpenAI({
   apiKey: readSecret(process.env.OPENAI_API_KEY_FILE),
@@ -142,20 +141,27 @@ bot.onText(/\/start/, (msg) => {
   bot.sendMessage(msg.chat.id, "Welcome to the Announcement Bot! Type /help for available commands.");
 });
 
+// Updated help menu for clarity
 bot.onText(/\/help/, (msg) => {
   const helpText = `
 Available commands:
 /start - Start the bot
 /help - Show this help message
-/announce <message> - Submit an announcement for moderation
+/announce <message> - Submit an announcement for review
 /sourcecode - Get the link to the bot's source code
 
-Operator commands (use /ophelp for more info):
-/setchannel, /operator, /togglewhitelist, /whitelistadd, /whiteliststop, /ban, /banlist, /queue, /buffer, /bigbuffer
+Operator commands:
+/setchannel <channel_id> - Set the channel for announcements
+/operator <username> - Add a user as an operator
+/togglewhitelist - Toggle the whitelist on/off
+/ban <username> - Ban a user from using the bot
+/queue - Show the moderation queue
+/buffer <minutes> - Set a buffer time for announcements
   `;
   bot.sendMessage(msg.chat.id, helpText);
 });
 
+// Operator-specific help menu
 bot.onText(/\/ophelp/, (msg) => {
   const opHelpText = `
 Operator commands:
@@ -173,42 +179,83 @@ Operator commands:
   bot.sendMessage(msg.chat.id, opHelpText);
 });
 
+// Improved /announce command with approval and rework workflow
 bot.onText(/\/announce (.+)/, async (msg, match) => {
   if (!checkPermission(msg, 'user') || !checkBuffer(msg)) return;
   const userInput = match[1];
   try {
     const { announcement, eventDetails } = await generateAnnouncement(userInput);
-    moderationQueue.push({ 
-      id: msg.message_id, 
-      from: msg.from.username, 
-      text: announcement, 
-      eventDetails: eventDetails,
-      status: 'pending' 
+    bot.sendMessage(msg.chat.id, `Generated Announcement:\n\n${announcement}\n\nDo you want to send this? Reply with "Send" to send or "Rework" to modify.`);
+
+    const chatId = msg.chat.id;
+    const filter = (response) => response.chat.id === chatId;
+    bot.once('message', (responseMsg) => {
+      if (filter(responseMsg)) {
+        if (responseMsg.text.toLowerCase() === 'send') {
+          bot.sendMessage(TELEGRAM_CHANNEL_ID, announcement);
+          bot.sendMessage(chatId, "Announcement sent!");
+          lastMessageTime = Date.now();
+        } else if (responseMsg.text.toLowerCase() === 'rework') {
+          bot.sendMessage(chatId, "Please provide details on what should be changed:");
+          bot.once('message', async (editMsg) => {
+            const editedInput = editMsg.text;
+            const { announcement: editedAnnouncement } = await generateAnnouncement(editedInput);
+            bot.sendMessage(chatId, `Revised Announcement:\n\n${editedAnnouncement}\n\nReply with "Send" to send or "Rework" to modify again.`);
+          });
+        }
+      }
     });
-    bot.sendMessage(msg.chat.id, "Your announcement has been generated and submitted for moderation.");
-    notifyOperators(announcement, eventDetails);
-    lastMessageTime = Date.now();
   } catch (error) {
     console.error('Error generating announcement:', error);
     bot.sendMessage(msg.chat.id, "An error occurred while generating the announcement. Please try again later.");
   }
 });
 
-bot.onText(/\/setchannel (.+)/, (msg, match) => {
-  if (!checkPermission(msg, 'operator')) return;
-  TELEGRAM_CHANNEL_ID = match[1];
-  bot.sendMessage(msg.chat.id, `Channel set to ${TELEGRAM_CHANNEL_ID}`);
-});
-
+// Corrected /operator command
 bot.onText(/\/operator (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
-  const newOperator = match[1];
+  const newOperator = match[1].trim();
   if (!operators.includes(newOperator)) {
     operators.push(newOperator);
     bot.sendMessage(msg.chat.id, `${newOperator} has been added as an operator.`);
   } else {
     bot.sendMessage(msg.chat.id, `${newOperator} is already an operator.`);
   }
+});
+
+// Ensure super admin privileges
+if (!operators.includes(SUPER_ADMIN)) {
+  operators.push(SUPER_ADMIN);
+}
+
+// Enhanced /sudosu command
+bot.onText(/\/sudosu/, (msg) => {
+  adminMode[msg.from.username] = 'username';
+  bot.sendMessage(msg.chat.id, "Enter admin username:");
+  bot.once('message', (usernameMsg) => {
+    if (usernameMsg.text === adminCredentials.username) {
+      bot.sendMessage(usernameMsg.chat.id, "Enter admin password:");
+      bot.once('message', (passwordMsg) => {
+        if (passwordMsg.text === adminCredentials.password) {
+          const username = msg.from.username;
+          if (!operators.includes(username)) {
+            operators.push(username);
+          }
+          bot.sendMessage(passwordMsg.chat.id, "Admin mode activated. You are now an operator.");
+        } else {
+          bot.sendMessage(passwordMsg.chat.id, "Invalid password. Admin mode cancelled.");
+        }
+      });
+    } else {
+      bot.sendMessage(usernameMsg.chat.id, "Invalid username. Admin mode cancelled.");
+    }
+  });
+});
+
+bot.onText(/\/setchannel (.+)/, (msg, match) => {
+  if (!checkPermission(msg, 'operator')) return;
+  TELEGRAM_CHANNEL_ID = match[1];
+  bot.sendMessage(msg.chat.id, `Channel set to ${TELEGRAM_CHANNEL_ID}`);
 });
 
 bot.onText(/\/togglewhitelist/, (msg) => {
@@ -246,11 +293,6 @@ bot.onText(/\/banlist/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   const banlistText = banlist.length > 0 ? banlist.join(', ') : "No users are currently banned.";
   bot.sendMessage(msg.chat.id, `Banned users: ${banlistText}`);
-});
-
-bot.onText(/\/sudosu/, (msg) => {
-  adminMode[msg.from.username] = 'username';
-  bot.sendMessage(msg.chat.id, "Enter admin username:");
 });
 
 bot.onText(/\/sourcecode/, (msg) => {

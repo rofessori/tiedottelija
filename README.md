@@ -28,6 +28,7 @@ Luo itse. OP:lla käytössä @tiedottelija_bot
 ### lopuksi
 
 luo juureen /secrets -kansio, johon viskaat avaimet .env nimeysjärjestyksen mukaan
+kopio täämn sisältö myös /backend/secrets ja viskaa sinne myös tokenit/avaimet 
 
 apien ohjeet googlesta.
 

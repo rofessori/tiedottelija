@@ -28,7 +28,7 @@ Nämä käyttöehdot ("Ehdot") koskevat Tiedottelija-sovelluksen käyttöä, jok
 ### 4. Muutokset Käyttöehdoissa
 - Kehittäjä pidättää oikeuden muuttaa näitä käyttöehtoja milloin tahansa ilman erillistä ilmoitusta. Käyttämällä sovellusta muutosten jälkeen käyttäjä hyväksyy päivitetyt ehdot.
 
-### 5. Sovellettava Laki ja Oikeuspaikka
+### 5. Sovellettava Laki ja Oikeustpoimialue
 - Näihin käyttöehtoihin sovelletaan Suomen lakeja, ja niihin liittyvät riidat ratkaistaan suomalaisissa tuomioistuimissa.
 
 ### 6. Kehittäjän Oikeudet

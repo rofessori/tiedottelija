@@ -3,6 +3,22 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const OpenAI = require('openai');
 
+const path = require('path'); // Import path module for cleaner file path management
+
+// Define paths to store channel and operator data
+const CHANNELS_FILE = path.join(__dirname, 'data', 'channels.json');
+const OPERATORS_FILE = path.join(__dirname, 'data', 'operators.json');
+
+// Ensure data directory exists
+const ensureDataDirectoryExists = () => {
+  const dataDir = path.join(__dirname, 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir);
+  }
+};
+
+ensureDataDirectoryExists();  // Call function to ensure directory is created
+
 dotenv.config();
 
 const readSecret = (filepath) => fs.readFileSync(filepath, 'utf8').trim();
@@ -12,11 +28,34 @@ const openai = new OpenAI({
 });
 
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
-let TELEGRAM_CHANNEL_ID = readSecret(process.env.TELEGRAM_CHANNEL_ID_FILE);
-let MODERATION_CHANNEL_ID = null; // New moderation channel ID
 
+// Function to save channels to JSON file
+const saveChannels = () => {
+  fs.writeFileSync(CHANNELS_FILE, JSON.stringify({ TELEGRAM_CHANNEL_ID, MODERATION_CHANNEL_ID }, null, 2));
+};
+
+// Function to save operators to JSON file
+const saveOperators = () => {
+  fs.writeFileSync(OPERATORS_FILE, JSON.stringify(operators, null, 2));
+};
+
+// Load channels from JSON file or initialize them
+let channels = { TELEGRAM_CHANNEL_ID: null, MODERATION_CHANNEL_ID: null };
+if (fs.existsSync(CHANNELS_FILE)) {
+  channels = JSON.parse(fs.readFileSync(CHANNELS_FILE, 'utf8'));
+} else {
+  fs.writeFileSync(CHANNELS_FILE, JSON.stringify(channels, null, 2));
+}
+let { TELEGRAM_CHANNEL_ID, MODERATION_CHANNEL_ID } = channels;  // Destructure channels
+
+// Load operators from JSON file or initialize them
 const SUPER_ADMIN = '@kahvirulla';
 let operators = [SUPER_ADMIN];
+if (fs.existsSync(OPERATORS_FILE)) {
+  operators = JSON.parse(fs.readFileSync(OPERATORS_FILE, 'utf8'));
+} else {
+  fs.writeFileSync(OPERATORS_FILE, JSON.stringify(operators, null, 2));
+}
 let whitelist = [];
 let banlist = [];
 let isWhitelistEnabled = false;
@@ -332,12 +371,15 @@ const notifyModerationChannel = (msg, message) => {  // Added 'msg' as a paramet
 bot.onText(/\/setmodchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   MODERATION_CHANNEL_ID = match[1];
+  saveChannels();  // Save to file
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Moderation channel set to: ${MODERATION_CHANNEL_ID}` : `Moderointikanava asetettu: ${MODERATION_CHANNEL_ID}`);
 });
+
 
 bot.onText(/\/setchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   TELEGRAM_CHANNEL_ID = match[1];
+  saveChannels();  // Save to file
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Channel set to: ${TELEGRAM_CHANNEL_ID}` : `Kanava asetettu: ${TELEGRAM_CHANNEL_ID}`);
 });
 
@@ -446,7 +488,7 @@ bot.onText(/\/operator (.+)/, (msg, match) => {
   const username = match[1].trim();
   if (!operators.includes(username)) {
     operators.push(username);
-    fs.writeFileSync('operators.json', JSON.stringify(operators));  // Save to file
+    saveOperators();  // Save to file
     bot.sendMessage(msg.chat.id, isEnglishMode ? `${username} has been added as an operator.` : `${username} on lisätty operaattoriksi.`);
   } else {
     bot.sendMessage(msg.chat.id, isEnglishMode ? `${username} is already an operator.` : `${username} on jo operaattori.`);

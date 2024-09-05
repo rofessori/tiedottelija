@@ -644,7 +644,7 @@ bot.onText(/\/sudosu/, (msg) => {
           }
           bot.sendMessage(chatId, isEnglishMode ? "Admin mode activated. You are now an operator." : "Ylläpitäjätila aktivoitu. Olet nyt operaattori. Katso operaattorikomennot /ophelp");
         } else {
-          bot.sendMessage(chatId, isEnglishMode ? "Invalid password. Admin mode cancelled." : "Virheellinen salasana. Ylläpitäjätila peruutettu.");
+          bot.sendMessage(chatId, isEnglishMode ? "Invalid password. Admin mode cancelled." : "Virheellinen salasana. Ylläpitäjätila PERUUTETTU saatana.");
         }
         delete adminMode[username];
       });

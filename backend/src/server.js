@@ -79,6 +79,65 @@ Example 2:
 🇫🇮 "UlkoXQ:lle on enää vain muutama paikka vapaana nopeimmille! 🏃🏼 Jos kuulet Uppsalan kutsun, suuntaa kipin kapin sähköpostiin ja varmista paikkasi reissuun. Ilmo päättyy tänään. 🇸🇪"  
 🇬🇧 "There are only a few spots left to SwedenXQ! 🏃🏼 If you hear the calling of Uppsala, head to your emails and secure your spot to this trip. The registration ends today. 🇸🇪"
 
+### ESIMERKKEJÄ LIIAN PITKISTÄ VIESTEISTÄ JA MITEN NIITÄ LYHENNETTIIN:
+
+Esimerkki 1:
+FI // EN
+
+Oletko aina haaveillut olevasti olympiavoittaja?🥇
+
+Älä haaveile enää, vaan tule korjaamaan palkintosi 14.-15.9 järjestettävistä LIIKUNTAJAOSTON OLYMPIALAISISTA.🔥 
+
+Liity matalalla kynnyksellä Hiukkasen futisjoukkue-ryhmään, tai pesisjoukkue-ryhmään, sekä tule keräämään henkilökohtaista kunniaa yleisurheilukentällä 100m juoksusta, pituushypystä ja kuulantyönnöstä.
+
+Maineen ja kunnian lisäksi sekä pesis- että futisturnauksesta ja top 3 sijoittumisesta yleisurheilulajeissa on luvassa palkinto. Koko olympialaisten voittajakillalle on luvassa ilmainen YTHS-saunailta. 🏆 Kaikki osallistujat saavat haalarimerkin.
+
+Koko olympialaisten voittoon vaikuttaa sekä killan sijoittuminen futis- ja pesisturnauksessa että yleisurheilurasteille osallistuvien henkilöiden määrä. 
+
+Kiltojen välisten Olympialaisten aikataulu:
+La 14.9 klo 10-18: futisturnaus ja yleisurheilurastit Hervannan keskusurheilukentällä
+Su 15.9 klo 10-18: pesisturnaus Kuusikkopuistossa ja Mäkipuistossa
+
+Nähdään kentillä!!🤝
+
+//////
+
+Have you always dreamed of being an Olympic champion?🥇
+
+Dream no more, come and claim your trophy at the SPORTS DIVISION’S OLYMPIC GAMES on 14-15 September.🔥 
+
+Join Hiukkanen's football team -Telegram group or Finnish baseball team -Telegram group, and come to win personal trophies on the track and field in the 100m run, long jump and shot put.
+
+In addition to fame and honor, there is a prize for both the Finnish baseball and football tournament and for finishing in the top 3 in track and field events. There will be a free YTHS sauna evening for the guild winning the overall Olympic games. 🏆Every participant will get a patch.
+
+The overall Olympic win is determined by both the guild's ranking in the football and Finnish baseball tournaments and the number of participants in the track and field events. 
+
+Olympic Games schedule:
+Sat 14.9 at 10-18: football tournament and track & field events at Hervanta keskusurheilukenttä 
+Sun 15.9 at 10-18: baseball tournament in Kuusikkopuisto and in Mäkipuisto
+
+See you at the Games!!🤝
+Lyhennetty versio esimerkistä 1:
+🇫🇮:  
+LIIKUNTAJAOSTON OLYMPIALAISET – osallistu 14.-15.9.!  
+
+Osallistu Hiukkasen futis- tai pesisjoukkueeseen tai kilpaile yleisurheilulajeissa (100m juoksu, pituushyppy, kuulantyöntö). Palkintoja tarjolla voittajille, sekä paras kilta palkitaan erikseen YTHS-saunaillalla! Koko olympialaisten voitto määräytyy joukkuelajien sijoitusten ja yleisurheiluun osallistuvien määrän perusteella.  
+
+Kaikki osallistujat saavat haalarimerkin.  
+
+- La 14.9 klo 10-18: futisturnaus & yleisurheilurastit, Hervannan keskusurheilukenttä  
+- Su 15.9 klo 10-18: pesisturnaus, Kuusikkopuisto ja Mäkipuisto  
+
+🇬🇧:  
+SPORTS DIVISION OLYMPIC GAMES on 14-15th of September!  
+
+Join Hiukkanen's football or pesäpallo team, or compete in track & field events (100m run, long jump, shot put). Prizes for event winners, and the overall winning guild gets a free YTHS sauna evening. Every participant gets a patch. Overall victory is based on team event rankings and the number of participants in track & field.  
+
+- Sat 14.9 at 10-18: football tournament & track & field events, Hervanta keskusurheilukenttä  
+- Sun 15.9 at 10-18: baseball tournament, Kuusikkopuisto and Mäkipuisto
+
+### NYT LUOTAVAN TIEDOTTEEN SISÄLTÖ:
+
 Käytä seuraavia tietoja luodaksesi ilmoituksen:
 ${message}
 
@@ -89,7 +148,7 @@ Varmista, että ilmoitus on ytimekäs, informatiivinen ja kiinnostava. Jos annet
 
 ${message}
 
-Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
+Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
   }
 
   try {

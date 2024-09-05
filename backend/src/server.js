@@ -27,6 +27,7 @@ let moderationQueue = [];
 let adminMode = {};
 let isEnglishMode = false; // New variable for language toggle
 
+
 // Load moderators from a JSON file
 let moderators = [];
 try {
@@ -41,6 +42,8 @@ const generateAnnouncement = async (message, isRework = false) => {
 
 ### OHJEET
 
+TEHTÄVÄSI ON KIRJOITTAA YKSI TIEDOTUSVIESTI.
+
 1. **Kirjoita otsikko suomeksi:**
    - Ensimmäinen otsikko on 50-60 merkkiä pitkä ja sisältää 3-6 sanaa. Tiivistä otsikkoon tapahtuman olennainen asia: mitä tapahtuu ja milloin. Kirjoita sulkeisiin otsikon jälkeen "(Lyhyt otsikko suomeksi)".
 
@@ -48,15 +51,15 @@ const generateAnnouncement = async (message, isRework = false) => {
    - Toinen otsikko on tiiviimpi versio ensimmäisestä, noin 30-40 merkkiä pitkä ja sisältää 3-4 sanaa. Kirjoita sulkeisiin otsikon jälkeen "(Short headline in English)".
 
 3. **Tee yhteenveto suomeksi:**
-   - Lisää alkuun emoji 🇫🇮 Kirjoita suomenkielinen yhteenveto noin 40-60 sanalla (maksimissaan 400 merkkiä). Tee siitä lyhyt ja ytimekäs, jaa teksti kahteen kappaleeseen. Mainitse mitä tapahtuma on, missä ja milloin se tapahtuu, ja muita tärkeitä yksityiskohtia kuten osallistumistapa. Käytä selkeää ja yksinkertaista kieltä.
+   - Lisää alkuun emoji 🇫🇮. Kirjoita suomenkielinen yhteenveto noin 40-60 sanalla, mutta jos käyttäjän viesti ja kuvailutarve on pitkä, se voi olla myös 150 sanaa (maksimissaan kuitenkin 1400 merkkiä). Tee siitä lyhyt ja ytimekäs, jaa teksti kahteen kappaleeseen. Mainitse mitä tapahtuma on, missä ja milloin se tapahtuu, ja muita tärkeitä yksityiskohtia kuten osallistumistapa. Käytä selkeää ja yksinkertaista kieltä.
 
 4. **Tee yhteenveto englanniksi:**
-   - Lisää alkuun emoji 🇬🇧 Kirjoita englanninkielinen versio suomalaisesta yhteenvedosta samalla pituudella ja rakenteella. Varmista, että käännös on tarkka ja välittää saman keskeisen tiedon.
+   - Lisää alkuun emoji 🇬🇧. Kirjoita englanninkielinen versio suomalaisesta yhteenvedosta samalla pituudella ja rakenteella. Varmista, että käännös on tarkka ja välittää saman keskeisen tiedon.
 
 5. **Sisällytä tärkeitä yksityiskohtia:**
-   - Jos ilmoituksessa on erityisiä ohjeita (esim. "OPM" eli "oma pullo mukaan") tai tarkkoja sijaintoja (kuten kiltahuone), mainitse ne selkeästi. Varmista, että konteksti säilyy oikein.
+   - Jos ilmoituksessa on erityisiä ohjeita (esim. "OPM" eli "oma pullo mukaan") tai tarkkoja sijaintoja (kuten kiltahuone), mainitse ne selkeästi. Varmista, että konteksti säilyy oikein. Vältä hashtageja (#).
 
-6. **Karsi yurhat uksityiskohdat pois:**
+6. **Karsi turhat yksityiskohdat pois:**
    - Jätä pois liian yksityiskohtaiset tarinat, esimerkit ja nimet, elleivät ne ole välttämättömiä tapahtuman ymmärtämiseksi. Keskity vain olennaiseen tietoon.
 
 ### Muotoile ilmoitus seuraavasti:
@@ -69,87 +72,28 @@ const generateAnnouncement = async (message, isRework = false) => {
 🇬🇧 [LYHYT OTSIKKO ENGLANNIKSI]
 [Samat tiedot kuin yllä, mutta englanniksi. Käytä selkeää ja tiivistä kieltä. Kun viittaat opiskelijajärjestö Hiukkaseen, käytä englanninkielistä monikkomuotoa "Hiukkanen's" tai omistusmuotoa "Hiukkanen's".]
 
-### Esimerkkejä opiskelijatapahtumien viesteistä Telegram-tiedotuskanavalla:
+### Kaksi erillistä esimerkkiä opiskelijatapahtumien viesteistä Telegram-tiedotuskanavalla:
 
-Example 1:
+####Example 1:
 🇫🇮 "Joko wiinihammasta kolottaa? 🍇🦷 HerkkuWiiniFestareilla kisataan tuttuun tapaan fuksi-, sima-, sekä viinisarjoissa! Tänä vuonna iltaa pääsee myös jatkamaan Teekkarisaunalle 19-> 🤯"  
 🇬🇧 "Got a craving for some wine? 🍇🦷 As usual, HerkkuWiiniFestival will feature competitions in the categories of fresher's wine, mead, and regular wine. This year, you can also continue the evening at the Teekkarisauna from 7 pm -> 🤯"
 
-Example 2:
+--
+
+####Example 2:
 🇫🇮 "UlkoXQ:lle on enää vain muutama paikka vapaana nopeimmille! 🏃🏼 Jos kuulet Uppsalan kutsun, suuntaa kipin kapin sähköpostiin ja varmista paikkasi reissuun. Ilmo päättyy tänään. 🇸🇪"  
 🇬🇧 "There are only a few spots left to SwedenXQ! 🏃🏼 If you hear the calling of Uppsala, head to your emails and secure your spot to this trip. The registration ends today. 🇸🇪"
 
-### ESIMERKKEJÄ LIIAN PITKISTÄ VIESTEISTÄ JA MITEN NIITÄ LYHENNETTIIN:
-
-Esimerkki 1:
-FI // EN
-
-Oletko aina haaveillut olevasti olympiavoittaja?🥇
-
-Älä haaveile enää, vaan tule korjaamaan palkintosi 14.-15.9 järjestettävistä LIIKUNTAJAOSTON OLYMPIALAISISTA.🔥 
-
-Liity matalalla kynnyksellä Hiukkasen futisjoukkue-ryhmään, tai pesisjoukkue-ryhmään, sekä tule keräämään henkilökohtaista kunniaa yleisurheilukentällä 100m juoksusta, pituushypystä ja kuulantyönnöstä.
-
-Maineen ja kunnian lisäksi sekä pesis- että futisturnauksesta ja top 3 sijoittumisesta yleisurheilulajeissa on luvassa palkinto. Koko olympialaisten voittajakillalle on luvassa ilmainen YTHS-saunailta. 🏆 Kaikki osallistujat saavat haalarimerkin.
-
-Koko olympialaisten voittoon vaikuttaa sekä killan sijoittuminen futis- ja pesisturnauksessa että yleisurheilurasteille osallistuvien henkilöiden määrä. 
-
-Kiltojen välisten Olympialaisten aikataulu:
-La 14.9 klo 10-18: futisturnaus ja yleisurheilurastit Hervannan keskusurheilukentällä
-Su 15.9 klo 10-18: pesisturnaus Kuusikkopuistossa ja Mäkipuistossa
-
-Nähdään kentillä!!🤝
-
-//////
-
-Have you always dreamed of being an Olympic champion?🥇
-
-Dream no more, come and claim your trophy at the SPORTS DIVISION’S OLYMPIC GAMES on 14-15 September.🔥 
-
-Join Hiukkanen's football team -Telegram group or Finnish baseball team -Telegram group, and come to win personal trophies on the track and field in the 100m run, long jump and shot put.
-
-In addition to fame and honor, there is a prize for both the Finnish baseball and football tournament and for finishing in the top 3 in track and field events. There will be a free YTHS sauna evening for the guild winning the overall Olympic games. 🏆Every participant will get a patch.
-
-The overall Olympic win is determined by both the guild's ranking in the football and Finnish baseball tournaments and the number of participants in the track and field events. 
-
-Olympic Games schedule:
-Sat 14.9 at 10-18: football tournament and track & field events at Hervanta keskusurheilukenttä 
-Sun 15.9 at 10-18: baseball tournament in Kuusikkopuisto and in Mäkipuisto
-
-See you at the Games!!🤝
-Lyhennetty versio esimerkistä 1:
-🇫🇮:  
-LIIKUNTAJAOSTON OLYMPIALAISET – osallistu 14.-15.9.!  
-
-Osallistu Hiukkasen futis- tai pesisjoukkueeseen tai kilpaile yleisurheilulajeissa (100m juoksu, pituushyppy, kuulantyöntö). Palkintoja tarjolla voittajille, sekä paras kilta palkitaan erikseen YTHS-saunaillalla! Koko olympialaisten voitto määräytyy joukkuelajien sijoitusten ja yleisurheiluun osallistuvien määrän perusteella.  
-
-Kaikki osallistujat saavat haalarimerkin.  
-
-- La 14.9 klo 10-18: futisturnaus & yleisurheilurastit, Hervannan keskusurheilukenttä  
-- Su 15.9 klo 10-18: pesisturnaus, Kuusikkopuisto ja Mäkipuisto  
-
-🇬🇧:  
-SPORTS DIVISION OLYMPIC GAMES on 14-15th of September!  
-
-Join Hiukkanen's football or pesäpallo team, or compete in track & field events (100m run, long jump, shot put). Prizes for event winners, and the overall winning guild gets a free YTHS sauna evening. Every participant gets a patch. Overall victory is based on team event rankings and the number of participants in track & field.  
-
-- Sat 14.9 at 10-18: football tournament & track & field events, Hervanta keskusurheilukenttä  
-- Sun 15.9 at 10-18: baseball tournament, Kuusikkopuisto and Mäkipuisto
 
 ### NYT LUOTAVAN TIEDOTTEEN SISÄLTÖ:
 
 Käytä seuraavia tietoja luodaksesi ilmoituksen:
 ${message}
 
-Varmista, että ilmoitus on ytimekäs, informatiivinen ja kiinnostava. Jos annetuissa tiedoissa ei ole tarpeeksi informaatiota (esim. puuttuu päivämäärä, aika tai paikka), pyydä lisätietoja.`;
-
-  if (isRework) {
-    prompt = `Muokkaa seuraavaa ilmoitusta opiskelijajärjestön tapahtumasta. Säilytä alkuperäisen viestin tärkeimmät tiedot ja rakenne. Tee siitä lyhyempi ja ytimekkäämpi:
-
-${message}
+## TARKISTA LOPUKSI
+Tarkista lopuksi että viesti on ymmäärrettävä ja sisältää oikeaoppista suomen kieltä ja että kaikki olennainen tapahtunmasta tulee kerrottua.
 
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
-  }
 
   try {
     const completion = await openai.chat.completions.create({
@@ -343,12 +287,11 @@ const processAnnounceCommand = async (msg, announcement) => {
     type: 'announce'
   });
 
-  bot.sendMessage(msg.chat.id, isEnglishMode ? "Your announcement has been sent for review." : "Ilmoituksesi on lähetetty tarkastettavaksi.");
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
   notifyModerationChannel(`${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);
 };
 
-// Notify moderation channel if set
 const notifyModerationChannel = (message) => {
   if (MODERATION_CHANNEL_ID) {
     const options = {

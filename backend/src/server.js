@@ -642,7 +642,7 @@ bot.onText(/\/sudosu/, (msg) => {
             operators.push(username);
             fs.writeFileSync('operators.json', JSON.stringify(operators));
           }
-          bot.sendMessage(chatId, isEnglishMode ? "Admin mode activated. You are now an operator." : "Ylläpitäjätila aktivoitu. Olet nyt operaattori.");
+          bot.sendMessage(chatId, isEnglishMode ? "Admin mode activated. You are now an operator." : "Ylläpitäjätila aktivoitu. Olet nyt operaattori. Katso operaattorikomennot /ophelp");
         } else {
           bot.sendMessage(chatId, isEnglishMode ? "Invalid password. Admin mode cancelled." : "Virheellinen salasana. Ylläpitäjätila peruutettu.");
         }

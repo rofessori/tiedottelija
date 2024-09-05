@@ -2,47 +2,15 @@ const TelegramBot = require('node-telegram-bot-api');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const OpenAI = require('openai');
-const path = require('path');
-const adminCredentials = require('./adminCredentials');
-const { authorize, addEventToCalendar } = require('./googleCalendar');
 
 dotenv.config();
 
-// Error handling for loading Google credentials
-const credentialsPath = path.join(__dirname, '../secrets/google_credentials.json');
-let googleCredentials;
+const readSecret = (filepath) => fs.readFileSync(filepath, 'utf8').trim();
 
-try {
-  googleCredentials = fs.readFileSync(credentialsPath, 'utf8');
-} catch (err) {
-  console.error('Failed to load Google credentials:', err);
-  process.exit(1); // Exit the application if credentials are missing
-}
-
-// Google Calendar Authorization
-authorize().then(() => {
-  console.log('Google Calendar authorized');
-}).catch(console.error);
-
-const readSecret = (filepath) => {
-  if (!filepath) {
-    console.error('File path is not defined or environment variable is missing.');
-    process.exit(1);
-  }
-  try {
-    return fs.readFileSync(filepath, 'utf8').trim();
-  } catch (err) {
-    console.error(`Failed to read secret from ${filepath}:`, err);
-    process.exit(1); // Exit if the secret cannot be read
-  }
-};
-
-// OpenAI Initialization
 const openai = new OpenAI({
   apiKey: readSecret(process.env.OPENAI_API_KEY_FILE),
 });
 
-// Telegram Bot Initialization
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
 let TELEGRAM_CHANNEL_ID = readSecret(process.env.TELEGRAM_CHANNEL_ID_FILE);
 let MODERATION_CHANNEL_ID = null; // New moderation channel ID
@@ -57,30 +25,72 @@ let bigBuffer = 0;
 let lastMessageTime = 0;
 let moderationQueue = [];
 let adminMode = {};
+let isEnglishMode = false; // New variable for language toggle
 
-const generateAnnouncement = async (message) => {
-  const prompt = `Create an announcement for a student organization event in the following format:
+// Load moderators from a JSON file
+let moderators = [];
+try {
+  moderators = JSON.parse(fs.readFileSync('moderators.json', 'utf8'));
+} catch (error) {
+  console.error('Error loading moderators:', error);
+  moderators = []; // Initialize as empty array if file doesn't exist or is invalid
+}
 
-🇫🇮 [EVENT SHORT HEADLINE IN FINNISH]
-[event info in finnish, short and informative, like a piece of news. Include up to two relevant emojis.]
+const generateAnnouncement = async (message, isRework = false) => {
+  let prompt = `Olet viestintäasiantuntija, joka luo ytimekkäitä ja selkeitä ilmoituksia opiskelijatapahtumista. Kun saat tekstin, muotoile siitä tiivis ja informatiivinen ilmoitus sekä suomeksi että englanniksi alla olevan ohjeen mukaisesti.
+
+### OHJEET
+
+1. **Kirjoita otsikko suomeksi:**
+   - Ensimmäinen otsikko on 50-60 merkkiä pitkä ja sisältää 3-6 sanaa. Tiivistä otsikkoon tapahtuman olennainen asia: mitä tapahtuu ja milloin. Kirjoita sulkeisiin otsikon jälkeen "(Lyhyt otsikko suomeksi)".
+
+2. **Anna otsikko englanniksi:**
+   - Toinen otsikko on tiiviimpi versio ensimmäisestä, noin 30-40 merkkiä pitkä ja sisältää 3-4 sanaa. Kirjoita sulkeisiin otsikon jälkeen "(Short headline in English)".
+
+3. **Tee yhteenveto suomeksi:**
+   - Lisää alkuun emoji 🇫🇮 Kirjoita suomenkielinen yhteenveto noin 40-60 sanalla (maksimissaan 400 merkkiä). Tee siitä lyhyt ja ytimekäs, jaa teksti kahteen kappaleeseen. Mainitse mitä tapahtuma on, missä ja milloin se tapahtuu, ja muita tärkeitä yksityiskohtia kuten osallistumistapa. Käytä selkeää ja yksinkertaista kieltä.
+
+4. **Tee yhteenveto englanniksi:**
+   - Lisää alkuun emoji 🇬🇧 Kirjoita englanninkielinen versio suomalaisesta yhteenvedosta samalla pituudella ja rakenteella. Varmista, että käännös on tarkka ja välittää saman keskeisen tiedon.
+
+5. **Sisällytä tärkeitä yksityiskohtia:**
+   - Jos ilmoituksessa on erityisiä ohjeita (esim. "OPM" eli "oma pullo mukaan") tai tarkkoja sijaintoja (kuten kiltahuone), mainitse ne selkeästi. Varmista, että konteksti säilyy oikein.
+
+6. **Karsi yurhat uksityiskohdat pois:**
+   - Jätä pois liian yksityiskohtaiset tarinat, esimerkit ja nimet, elleivät ne ole välttämättömiä tapahtuman ymmärtämiseksi. Keskity vain olennaiseen tietoon.
+
+### Muotoile ilmoitus seuraavasti:
+
+🇫🇮 [LYHYT OTSIKKO SUOMEKSI]
+[Tapahtumatiedot suomeksi, lyhyesti ja informatiivisesti uutisen tapaan. Sisällytä tärkeimmät tiedot tapahtumasta, kuten mitä tapahtuu, missä, milloin ja mahdolliset ohjeet osallistujille. Lisää korkeintaan kaksi sopivaa emojia.]
 
 ---
 
-🇬🇧 [SHORT HEADLINE IN ENGLISH]
-[Same information as above but in English. When referring to the student organization Hiukkanen, use "Hiukkanens" as the English plural form.]
+🇬🇧 [LYHYT OTSIKKO ENGLANNIKSI]
+[Samat tiedot kuin yllä, mutta englanniksi. Käytä selkeää ja tiivistä kieltä. Kun viittaat opiskelijajärjestö Hiukkaseen, käytä englanninkielistä monikkomuotoa "Hiukkanen's" tai omistusmuotoa "Hiukkanen's".]
 
----
+### Esimerkkejä opiskelijatapahtumien viesteistä Telegram-tiedotuskanavalla:
 
-EVENT DETAILS:
-Title: [Event title]
-Date: [Event date in YYYY-MM-DD format]
-Time: [Event time in HH:MM format]
-Description: [A brief description of the event]
+Example 1:
+🇫🇮 "Joko wiinihammasta kolottaa? 🍇🦷 HerkkuWiiniFestareilla kisataan tuttuun tapaan fuksi-, sima-, sekä viinisarjoissa! Tänä vuonna iltaa pääsee myös jatkamaan Teekkarisaunalle 19-> 🤯"  
+🇬🇧 "Got a craving for some wine? 🍇🦷 As usual, HerkkuWiiniFestival will feature competitions in the categories of fresher's wine, mead, and regular wine. This year, you can also continue the evening at the Teekkarisauna from 7 pm -> 🤯"
 
-Use the following information to create the announcement and extract the event details:
+Example 2:
+🇫🇮 "UlkoXQ:lle on enää vain muutama paikka vapaana nopeimmille! 🏃🏼 Jos kuulet Uppsalan kutsun, suuntaa kipin kapin sähköpostiin ja varmista paikkasi reissuun. Ilmo päättyy tänään. 🇸🇪"  
+🇬🇧 "There are only a few spots left to SwedenXQ! 🏃🏼 If you hear the calling of Uppsala, head to your emails and secure your spot to this trip. The registration ends today. 🇸🇪"
+
+Käytä seuraavia tietoja luodaksesi ilmoituksen:
 ${message}
 
-Ensure the announcement is concise, informative, and engaging.`;
+Varmista, että ilmoitus on ytimekäs, informatiivinen ja kiinnostava. Jos annetuissa tiedoissa ei ole tarpeeksi informaatiota (esim. puuttuu päivämäärä, aika tai paikka), pyydä lisätietoja.`;
+
+  if (isRework) {
+    prompt = `Muokkaa seuraavaa ilmoitusta opiskelijajärjestön tapahtumasta. Säilytä alkuperäisen viestin tärkeimmät tiedot ja rakenne. Tee siitä lyhyempi ja ytimekkäämpi:
+
+${message}
+
+Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
+  }
 
   try {
     const completion = await openai.chat.completions.create({
@@ -90,15 +100,13 @@ Ensure the announcement is concise, informative, and engaging.`;
     });
 
     const response = completion.choices[0].message.content.trim();
-    const [announcement, eventDetails] = response.split('EVENT DETAILS:');
-
-    return { announcement: announcement.trim(), eventDetails: eventDetails.trim() };
+    if (response.includes("Lisätietoja tarvitaan") || response.includes("More information needed")) {
+      return { text: response, needsMoreInfo: true };
+    }
+    return { text: response, needsMoreInfo: false };
   } catch (error) {
     if (error.code === 'insufficient_quota') {
-      return {
-        announcement: `Error: OpenAI API quota exceeded. Please try again later or contact the administrator.\n\nOriginal message:\n${message}`,
-        eventDetails: null
-      };
+      return { text: `Virhe: OpenAI API:n kiintiö ylitetty. Yritä myöhemmin uudelleen tai ota yhteyttä ylläpitäjään.\n\nAlkuperäinen viesti:\n${message}`, needsMoreInfo: false };
     }
     throw error;
   }
@@ -113,15 +121,15 @@ const isBanned = (username) => banlist.includes(username);
 const checkPermission = (msg, permission) => {
   const username = msg.from.username;
   if (isBanned(username)) {
-    bot.sendMessage(msg.chat.id, "Olet estetty käyttämästä tätä bottia.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "You are banned from using this bot." : "Olet estetty käyttämästä tätä bottia.");
     return false;
   }
   if (!isWhitelisted(username)) {
-    bot.sendMessage(msg.chat.id, "Sinulla ei ole oikeutta käyttää tätä bottia.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "You don't have permission to use this bot." : "Sinulla ei ole oikeutta käyttää tätä bottia.");
     return false;
   }
   if (permission === 'operator' && !isOperator(username)) {
-    bot.sendMessage(msg.chat.id, "Sinulla ei ole operaattorin oikeuksia käyttää tätä komentoa.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "You don't have operator rights to use this command." : "Sinulla ei ole operaattorin oikeuksia käyttää tätä komentoa.");
     return false;
   }
   return true;
@@ -132,7 +140,7 @@ const checkBuffer = (msg) => {
   const bufferTime = bigBuffer || messageBuffer;
   if (now - lastMessageTime < bufferTime * 60 * 1000) {
     const remainingTime = Math.ceil((bufferTime * 60 * 1000 - (now - lastMessageTime)) / 60000);
-    bot.sendMessage(msg.chat.id, `Odota ${remainingTime} minuuttia ennen kuin lähetät uuden ilmoituksen.`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `Wait ${remainingTime} minutes before sending a new announcement.` : `Odota ${remainingTime} minuuttia ennen kuin lähetät uuden ilmoituksen.`);
     return false;
   }
   return true;
@@ -147,11 +155,18 @@ bot.onText(/\/start/, (msg) => {
       ]
     }
   };
-  bot.sendMessage(msg.chat.id, "Tervetuloa Ilmoitusbottiin! Kirjoita /help nähdäksesi käytettävissä olevat komennot.", options);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "Welcome to the Announcement Bot! Type /help to see available commands." : "Tervetuloa Ilmoitusbottiin! Kirjoita /help nähdäksesi käytettävissä olevat komennot.", options);
 });
 
 bot.onText(/\/help/, (msg) => {
-  const helpText = `
+  const helpText = isEnglishMode ? `
+Available commands:
+/start - Start the bot
+/help - Show this help message
+/announce - Submit a ready-made announcement for review
+/generate <description> - Create an announcement using GPT-3
+/sourcecode - Show link to bot's source code
+  ` : `
 Käytettävissä olevat komennot:
 /start - Käynnistä botti
 /help - Näytä tämä ohjeviesti
@@ -163,7 +178,26 @@ Käytettävissä olevat komennot:
 });
 
 bot.onText(/\/ophelp/, (msg) => {
-  const opHelpText = `
+  if (!checkPermission(msg, 'operator')) return;
+  const opHelpText = isEnglishMode ? `
+Operator commands:
+/setchannel <channel_id> - Set announcement channel
+/setmodchannel <channel_id> - Set moderation channel
+/operator <username> - Add user as operator
+/listoperators - Show list of all operators
+/togglewhitelist - Toggle whitelist on/off
+/whitelistadd - Add users to whitelist
+/whiteliststop - Stop adding users to whitelist
+/ban <username> - Ban user
+/banlist - Show list of banned users
+/queue - Show moderation queue
+/buffer <minutes> - Set buffer time for announcements (1-360 minutes)
+/bigbuffer <minutes> - Set longer buffer time for announcements (1-360 minutes)
+/edit <message_id> <new_text> - Edit message in queue
+/shorten <message_id> - Shorten message in queue
+/togglelanguage - Toggle between Finnish and English
+/listmoderators - List usernames of bot moderators
+  ` : `
 Operaattorikomennot:
 /setchannel <channel_id> - Aseta ilmoituskanava
 /setmodchannel <channel_id> - Aseta moderointikanava
@@ -177,17 +211,21 @@ Operaattorikomennot:
 /queue - Näytä moderointijono
 /buffer <minuutit> - Aseta puskuriaika ilmoituksille (1-360 minuuttia)
 /bigbuffer <minuutit> - Aseta pidempi puskuriaika ilmoituksille (1-360 minuuttia)
+/edit <message_id> <new_text> - Muokkaa jonossa olevaa ilmoitusta
+/shorten <message_id> - Lyhennä jonossa olevaa ilmoitusta
+/togglelanguage - Vaihda suomen ja englannin kielen välillä
+/listmoderators - Listaa botin moderaattorien käyttäjänimet
   `;
   bot.sendMessage(msg.chat.id, opHelpText);
 });
 
-// Generate and Announce commands differentiated
+// Generate command
 bot.onText(/\/generate(.*)/, async (msg, match) => {
   if (!checkPermission(msg, 'user') || !checkBuffer(msg)) return;
   const userInput = match[1] ? match[1].trim() : null;
 
   if (!userInput) {
-    bot.sendMessage(msg.chat.id, "Anna tapahtuman kuvaus luodaksesi ilmoituksen:");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Provide an event description to create an announcement:" : "Anna tapahtuman kuvaus luodaksesi ilmoituksen:");
     bot.once('message', async (inputMsg) => {
       await processGenerateCommand(msg, inputMsg.text);
     });
@@ -198,28 +236,27 @@ bot.onText(/\/generate(.*)/, async (msg, match) => {
 
 const processGenerateCommand = async (msg, userInput) => {
   try {
-    const { announcement, eventDetails } = await generateAnnouncement(userInput);
+    const { text: announcement, needsMoreInfo } = await generateAnnouncement(userInput);
+    if (needsMoreInfo) {
+      bot.sendMessage(msg.chat.id, isEnglishMode ? "More information needed. Please provide:" : "Lisätietoja tarvitaan. Ole hyvä ja kerro:");
+      bot.sendMessage(msg.chat.id, announcement);
+      return;
+    }
     moderationQueue.push({
       id: msg.message_id,
       from: msg.from.username,
       text: announcement,
-      eventDetails: eventDetails,
+      originalInput: userInput,
       status: 'pending',
       type: 'generate'
     });
 
-    const options = {
-      reply_markup: {
-        inline_keyboard: [
-          [{ text: 'Lähetä', callback_data: 'approve_' + msg.message_id }, { text: 'Muokkaa', callback_data: 'edit_' + msg.message_id }]
-        ]
-      }
-    };
-    bot.sendMessage(msg.chat.id, `Luotu ilmoitus:\n\n${announcement}`, options);
-    notifyModerationChannel(`Uusi luotu ilmoitus tarkistettavana:\n\n${announcement}`);
+    bot.sendMessage(msg.chat.id, `${isEnglishMode ? 'Created announcement:' : 'Luotu ilmoitus:'}\n\n${announcement}`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
+    notifyModerationChannel(`${isEnglishMode ? 'New generated announcement for review:' : 'Uusi luotu ilmoitus tarkistettavana:'}\n\n${announcement}`);
   } catch (error) {
-    console.error('Virhe luodessa ilmoitusta:', error);
-    bot.sendMessage(msg.chat.id, "Ilmoituksen luomisessa tapahtui virhe. Yritä myöhemmin uudelleen.");
+    console.error('Error creating announcement:', error);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "An error occurred while creating the announcement. Please try again later." : "Ilmoituksen luomisessa tapahtui virhe. Yritä myöhemmin uudelleen.");
   }
 };
 
@@ -229,7 +266,7 @@ bot.onText(/\/announce(.*)/, async (msg, match) => {
   const userInput = match[1] ? match[1].trim() : null;
 
   if (!userInput) {
-    bot.sendMessage(msg.chat.id, "Anna tapahtuman ilmoitus tarkastettavaksi:");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Provide the event announcement for review:" : "Anna tapahtuman ilmoitus tarkastettavaksi:");
     bot.once('message', async (inputMsg) => {
       await processAnnounceCommand(msg, inputMsg.text);
     });
@@ -247,15 +284,9 @@ const processAnnounceCommand = async (msg, announcement) => {
     type: 'announce'
   });
 
-  const options = {
-    reply_markup: {
-      inline_keyboard: [
-        [{ text: 'Lähetä', callback_data: 'approve_' + msg.message_id }, { text: 'Muokkaa', callback_data: 'edit_' + msg.message_id }]
-      ]
-    }
-  };
-  bot.sendMessage(msg.chat.id, "Ilmoituksesi on lähetetty tarkastettavaksi.", options);
-  notifyModerationChannel(`Uusi ilmoitus tarkistettavana:\n\n${announcement}`);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "Your announcement has been sent for review." : "Ilmoituksesi on lähetetty tarkastettavaksi.");
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
+  notifyModerationChannel(`${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);
 };
 
 // Notify moderation channel if set
@@ -265,11 +296,23 @@ const notifyModerationChannel = (message) => {
       reply_markup: {
         inline_keyboard: [
           [{ text: '👍', callback_data: 'approve' }, { text: '👎', callback_data: 'reject' }],
-          [{ text: 'Edit', callback_data: 'edit' }, { text: 'Regenerate', callback_data: 'regenerate' }, { text: 'Shorten', callback_data: 'shorten' }]
+          [{ text: isEnglishMode ? 'Edit' : 'Muokkaa', callback_data: 'edit' }, 
+           { text: isEnglishMode ? 'Regenerate' : 'Uudelleenluo', callback_data: 'regenerate' }, 
+           { text: isEnglishMode ? 'Shorten' : 'Lyhennä', callback_data: 'shorten' }]
         ]
       }
     };
-    bot.sendMessage(MODERATION_CHANNEL_ID, message, options);
+    bot.sendMessage(MODERATION_CHANNEL_ID, message, options).catch(error => {
+      console.error('Error sending message to moderation channel:', error);
+      bot.sendMessage(msg.chat.id, isEnglishMode ? 
+        "Error: Unable to send message to moderation channel. Please check the channel ID and bot permissions." : 
+        "Virhe: Viestiä ei voitu lähettää moderointikanavalle. Tarkista kanavan ID ja botin oikeudet.");
+    });
+  } else {
+    console.error('Moderation channel ID not set');
+    bot.sendMessage(msg.chat.id, isEnglishMode ?
+      "Error: Moderation channel not set. Please contact an operator to set up the moderation channel." :
+      "Virhe: Moderointikanavaa ei ole asetettu. Ota yhteyttä operaattoriin moderointikanavan asettamiseksi.");
   }
 };
 
@@ -277,39 +320,38 @@ const notifyModerationChannel = (message) => {
 bot.onText(/\/setmodchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   MODERATION_CHANNEL_ID = match[1];
-  bot.sendMessage(msg.chat.id, `Moderointikanava asetettu: ${MODERATION_CHANNEL_ID}`);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Moderation channel set to: ${MODERATION_CHANNEL_ID}` : `Moderointikanava asetettu: ${MODERATION_CHANNEL_ID}`);
 });
 
 bot.onText(/\/setchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   TELEGRAM_CHANNEL_ID = match[1];
-  bot.sendMessage(msg.chat.id, `Kanava asetettu: ${TELEGRAM_CHANNEL_ID}`);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Channel set to: ${TELEGRAM_CHANNEL_ID}` : `Kanava asetettu: ${TELEGRAM_CHANNEL_ID}`);
 });
 
-// New command to list all operators
 bot.onText(/\/listoperators/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   const operatorsList = operators.join(', ');
-  bot.sendMessage(msg.chat.id, `Operaattorit: ${operatorsList}`);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Operators: ${operatorsList}` : `Operaattorit: ${operatorsList}`);
 });
 
 bot.onText(/\/togglewhitelist/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   isWhitelistEnabled = !isWhitelistEnabled;
-  bot.sendMessage(msg.chat.id, `Valkolista on nyt ${isWhitelistEnabled ? 'käytössä' : 'pois käytöstä'}.`);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Whitelist is now ${isWhitelistEnabled ? 'enabled' : 'disabled'}.` : `Valkolista on nyt ${isWhitelistEnabled ? 'käytössä' : 'pois käytöstä'}.`);
 });
 
 bot.onText(/\/whitelistadd/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   adminMode[msg.from.username] = 'whitelist';
-  bot.sendMessage(msg.chat.id, "Lähetä käyttäjien käyttäjänimet lisätäksesi valkolistalle. Kirjoita /whiteliststop kun valmis.");
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "Send usernames to add to the whitelist. Type /whiteliststop when finished." : "Lähetä käyttäjien käyttäjänimet lisätäksesi valkolistalle. Kirjoita /whiteliststop kun valmis.");
 });
 
 bot.onText(/\/whiteliststop/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   if (adminMode[msg.from.username] === 'whitelist') {
     delete adminMode[msg.from.username];
-    bot.sendMessage(msg.chat.id, "Käyttäjien lisääminen valkolistalle lopetettu.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Finished adding users to the whitelist." : "Käyttäjien lisääminen valkolistalle lopetettu.");
   }
 });
 
@@ -318,26 +360,29 @@ bot.onText(/\/ban (.+)/, (msg, match) => {
   const userToBan = match[1];
   if (!banlist.includes(userToBan)) {
     banlist.push(userToBan);
-    bot.sendMessage(msg.chat.id, `${userToBan} on estetty käyttämästä bottia.`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `${userToBan} has been banned from using the bot.` : `${userToBan} on estetty käyttämästä bottia.`);
   } else {
-    bot.sendMessage(msg.chat.id, `${userToBan} on jo estetty.`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `${userToBan} is already banned.` : `${userToBan} on jo estetty.`);
   }
 });
 
 bot.onText(/\/banlist/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
-  const banlistText = banlist.length > 0 ? banlist.join(', ') : "Ei estettyjä käyttäjiä.";
-  bot.sendMessage(msg.chat.id, `Estetyt käyttäjät: ${banlistText}`);
+  const banlistText = banlist.length > 0 ? banlist.join(', ') : isEnglishMode ? "No banned users." : "Ei estettyjä käyttäjiä.";
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Banned users: ${banlistText}` : `Estetyt käyttäjät: ${banlistText}`);
 });
 
 bot.onText(/\/sourcecode/, (msg) => {
-  bot.sendMessage(msg.chat.id, "Lähdekoodi löytyy täältä: https://github.com/rofessori/tiedottelija");
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "The source code can be found here: https://github.com/rofessori/tiedottelija" : "Lähdekoodi löytyy täältä: https://github.com/rofessori/tiedottelija");
 });
 
 bot.onText(/\/queue/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   moderationQueue.forEach((item, index) => {
-    bot.sendMessage(msg.chat.id, `${index + 1}. Lähettäjä: ${item.from}, Tila: ${item.status}, Tyyppi: ${item.type}\nViesti: ${item.text}`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? 
+      `${index + 1}. Sender: ${item.from}, Status: ${item.status}, Type: ${item.type}\nMessage: ${item.text}` :
+      `${index + 1}. Lähettäjä: ${item.from}, Tila: ${item.status}, Tyyppi: ${item.type}\nViesti: ${item.text}`
+    );
   });
 });
 
@@ -347,9 +392,9 @@ bot.onText(/\/buffer (\d+)/, (msg, match) => {
   if (minutes >= 1 && minutes <= 360) {
     messageBuffer = minutes;
     bigBuffer = 0;
-    bot.sendMessage(msg.chat.id, `Puskuriaika asetettu ${minutes} minuutiksi.`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `Buffer time set to ${minutes} minutes.` : `Puskuriaika asetettu ${minutes} minuutiksi.`);
   } else {
-    bot.sendMessage(msg.chat.id, "Määritä puskuriaika välillä 1-360 minuuttia.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Set buffer time between 1-360 minutes." : "Määritä puskuriaika välillä 1-360 minuuttia.");
   }
 });
 
@@ -359,126 +404,161 @@ bot.onText(/\/bigbuffer (\d+)/, (msg, match) => {
   if (minutes >= 1 && minutes <= 360) {
     bigBuffer = minutes;
     messageBuffer = 0;
-    bot.sendMessage(msg.chat.id, `Pitkä puskuriaika asetettu ${minutes} minuutiksi.`);
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `Long buffer time set to ${minutes} minutes.` : `Pitkä puskuriaika asetettu ${minutes} minuutiksi.`);
   } else {
-    bot.sendMessage(msg.chat.id, "Määritä pidempi puskuriaika välillä 1-360 minuuttia.");
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Set longer buffer time between 1-360 minutes." : "Määritä pidempi puskuriaika välillä 1-360 minuuttia.");
   }
 });
 
+bot.onText(/\/edit (\d+) (.+)/, (msg, match) => {
+  if (!checkPermission(msg, 'operator')) return;
+  const messageId = parseInt(match[1]);
+  const newText = match[2];
+  const queueItem = moderationQueue.find(item => item.id === messageId);
+  if (queueItem) {
+    queueItem.text = newText;
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement updated in queue." : "Ilmoitus päivitetty jonossa.");
+    notifyModerationChannel(isEnglishMode ? `Announcement updated:\n\n${newText}` : `Ilmoitus päivitetty:\n\n${newText}`);
+  } else {
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement not found in queue." : "Ilmoitusta ei löydy jonosta.");
+  }
+});
+
+bot.onText(/\/shorten (\d+)/, async (msg, match) => {
+  if (!checkPermission(msg, 'operator')) return;
+  const messageId = parseInt(match[1]);
+  const queueItem = moderationQueue.find(item => item.id === messageId);
+  if (queueItem) {
+    const { text: shortenedText } = await generateAnnouncement(queueItem.text, true);
+    queueItem.text = shortenedText;
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
+    notifyModerationChannel(isEnglishMode ? `Announcement shortened:\n\n${shortenedText}` : `Ilmoitus lyhennetty:\n\n${shortenedText}`);
+  } else {
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement not found in queue." : "Ilmoitusta ei löydy jonosta.");
+  }
+});
+
+// List moderators
+bot.onText(/\/listmoderators/, (msg) => {
+  if (!checkPermission(msg, 'operator')) return;
+  const moderatorsList = moderators.join(', ');
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Bot moderators: ${moderatorsList}` : `Botin moderaattorit: ${moderatorsList}`);
+});
+
+// Command to toggle language
+bot.onText(/\/togglelanguage/, (msg) => {
+  if (!checkPermission(msg, 'operator')) return;
+  isEnglishMode = !isEnglishMode;
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "Bot is now speaking in English." : "Botti puhuu nyt suomea.");
+});
+
+// Handle inline button callbacks
+bot.on('callback_query', async (callbackQuery) => {
+  const action = callbackQuery.data;
+  const msg = callbackQuery.message;
+  const chatId = msg.chat.id;
+
+  if (action.startsWith('approve_')) {
+    const messageId = parseInt(action.split('_')[1]);
+    const queueItem = moderationQueue.find(item => item.id === messageId);
+    if (queueItem) {
+      queueItem.status = 'approved';
+      bot.sendMessage(TELEGRAM_CHANNEL_ID, queueItem.text);
+      bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement approved and sent!" : "Ilmoitus hyväksytty ja lähetetty!" });
+    }
+  } else if (action.startsWith('edit_')) {
+    const messageId = parseInt(action.split('_')[1]);
+    bot.answerCallbackQuery(callbackQuery.id);
+    bot.sendMessage(chatId, isEnglishMode ? "Write new text for the announcement:" : "Kirjoita uusi teksti ilmoitukselle:");
+    bot.once('message', async (editMsg) => {
+      const queueItem = moderationQueue.find(item => item.id === messageId);
+      if (queueItem) {
+        queueItem.text = editMsg.text;
+        bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
+        notifyModerationChannel(isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
+      }
+    });
+  } else if (action === 'approve' || action === 'reject' || action === 'edit' || action === 'regenerate' || action === 'shorten') {
+    // Handle moderation actions
+    const queueItem = moderationQueue.find(item => item.text === msg.text.split('\n\n')[1]);
+    if (queueItem) {
+      switch (action) {
+        case 'approve':
+          queueItem.status = 'approved';
+          bot.sendMessage(TELEGRAM_CHANNEL_ID, queueItem.text);
+          bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement approved and sent!" : "Ilmoitus hyväksytty ja lähetetty!" });
+          break;
+        case 'reject':
+          queueItem.status = 'rejected';
+          bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement rejected." : "Ilmoitus hylätty." });
+          break;
+        case 'edit':
+          bot.answerCallbackQuery(callbackQuery.id);
+          bot.sendMessage(chatId, isEnglishMode ? "Write new text for the announcement:" : "Kirjoita uusi teksti ilmoitukselle:");
+          bot.once('message', async (editMsg) => {
+            queueItem.text = editMsg.text;
+            bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
+            notifyModerationChannel(isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
+          });
+          break;
+        case 'regenerate':
+          bot.answerCallbackQuery(callbackQuery.id);
+          const { text: regeneratedText } = await generateAnnouncement(queueItem.originalInput || queueItem.text);
+          queueItem.text = regeneratedText;
+          bot.sendMessage(chatId, isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
+          notifyModerationChannel(isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
+          break;
+        case 'shorten':
+          bot.answerCallbackQuery(callbackQuery.id);
+          const { text: shortenedText } = await generateAnnouncement(queueItem.text, true);
+          queueItem.text = shortenedText;
+          bot.sendMessage(chatId, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
+          notifyModerationChannel(isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
+          break;
+      }
+    }
+  }
+});
+
+// New command for admin authentication
 bot.onText(/\/sudosu/, (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
 
-  adminMode[username] = 'username';  // Set mode to 'username' for this user
-  bot.sendMessage(chatId, "Syötä ylläpitäjän käyttäjänimi:");
+  adminMode[username] = 'username';
+  bot.sendMessage(chatId, isEnglishMode ? "Enter admin username:" : "Syötä ylläpitäjän käyttäjänimi:");
 
   bot.once('message', (usernameMsg) => {
-    if (usernameMsg.from.username === username && usernameMsg.text === adminCredentials.username) {
-      adminMode[username] = 'password';  // Change mode to 'password' for this user
-      bot.sendMessage(chatId, "Syötä ylläpitäjän salasana:");
+    if (usernameMsg.from.username === username && usernameMsg.text === SUPER_ADMIN) {
+      adminMode[username] = 'password';
+      bot.sendMessage(chatId, isEnglishMode ? "Enter admin password:" : "Syötä ylläpitäjän salasana:");
       
       bot.once('message', (passwordMsg) => {
-        if (passwordMsg.from.username === username && passwordMsg.text === adminCredentials.password) {
+        if (passwordMsg.from.username === username && passwordMsg.text === process.env.ADMIN_PASSWORD) {
           if (!operators.includes(username)) {
             operators.push(username);
+            fs.writeFileSync('operators.json', JSON.stringify(operators));
           }
-          bot.sendMessage(chatId, "Ylläpitäjätila aktivoitu. Olet nyt operaattori.");
+          bot.sendMessage(chatId, isEnglishMode ? "Admin mode activated. You are now an operator." : "Ylläpitäjätila aktivoitu. Olet nyt operaattori.");
         } else {
-          bot.sendMessage(chatId, "Virheellinen salasana. Ylläpitäjätila peruutettu.");
-          delete adminMode[username];  // Reset mode
+          bot.sendMessage(chatId, isEnglishMode ? "Invalid password. Admin mode cancelled." : "Virheellinen salasana. Ylläpitäjätila peruutettu.");
         }
+        delete adminMode[username];
       });
     } else {
-      bot.sendMessage(chatId, "Virheellinen käyttäjänimi. Ylläpitäjätila peruutettu.");
-      delete adminMode[username];  // Reset mode
+      bot.sendMessage(chatId, isEnglishMode ? "Invalid username. Admin mode cancelled." : "Virheellinen käyttäjänimi. Ylläpitäjätila peruutettu.");
+      delete adminMode[username];
     }
   });
 });
 
-bot.on('message', (msg) => {
-  const username = msg.from.username;
-  if (adminMode[username] === 'username') {
-    if (msg.text === adminCredentials.username) {
-      adminMode[username] = 'password';
-      bot.sendMessage(msg.chat.id, "Syötä ylläpitäjän salasana:");
-    } else {
-      delete adminMode[username];
-      bot.sendMessage(msg.chat.id, "Virheellinen käyttäjänimi. Ylläpitäjätila peruutettu.");
-    }
-  } else if (adminMode[username] === 'password') {
-    if (msg.text === adminCredentials.password) {
-      adminMode[username] = 'admin';
-      bot.sendMessage(msg.chat.id, "Ylläpitäjätila aktivoitu. Voit nyt käyttää /operator-komentoa lisätäksesi itsesi operaattoriksi.");
-    } else {
-      delete adminMode[username];
-      bot.sendMessage(msg.chat.id, "Virheellinen salasana. Ylläpitäjätila peruutettu.");
-    }
-  } else if (adminMode[username] === 'whitelist') {
-    if (!whitelist.includes(msg.text)) {
-      whitelist.push(msg.text);
-      bot.sendMessage(msg.chat.id, `${msg.text} lisätty valkolistalle. Lähetä toinen käyttäjänimi tai kirjoita /whiteliststop lopettaaksesi.`);
-    } else {
-      bot.sendMessage(msg.chat.id, `${msg.text} on jo valkolistalla. Lähetä toinen käyttäjänimi tai kirjoita /whiteliststop lopettaaksesi.`);
-    }
-  } else if (msg.reply_to_message && (msg.text === '👍' || msg.text === '👎')) {
-    if (!isOperator(username)) {
-      bot.sendMessage(msg.chat.id, "Sinulla ei ole oikeuksia moderoida ilmoituksia.");
-      return;
-    }
-    const originalMessageId = msg.reply_to_message.message_id;
-    const queueItem = moderationQueue.find(item => item.id === originalMessageId);
-    if (!queueItem) {
-      bot.sendMessage(msg.chat.id, "Tämä viesti ei ole moderointijonossa.");
-      return;
-    }
-    if (msg.text === '👍') {
-      queueItem.status = 'approved';
-      bot.sendMessage(TELEGRAM_CHANNEL_ID, queueItem.text);
-      bot.sendMessage(msg.chat.id, "Ilmoitus hyväksytty ja lähetetty!");
-
-      // Add event to Google Calendar
-      if (queueItem.eventDetails) {
-        const eventDetails = parseEventDetails(queueItem.eventDetails);
-        addEventToCalendar(eventDetails);
-      }
-    } else {
-      queueItem.status = 'rejected';
-      bot.sendMessage(msg.chat.id, "Ilmoitus hylätty.");
-      bot.sendMessage(queueItem.from, "Ilmoituksesi hylättiin. Voit lähettää uuden, jos haluat.");
-    }
-    lastMessageTime = 0; // Reset buffer after moderation
+// Error handling for moderation channel messages
+bot.on('error', (error) => {
+  console.error('Error in bot:', error);
+  if (error.code === 'ETELEGRAM' && error.response && error.response.statusCode === 403) {
+    console.error('Bot is not a member of the moderation channel or lacks necessary permissions.');
   }
 });
 
-const notifyOperators = (announcement, eventDetails) => {
-  operators.forEach(operator => {
-    bot.sendMessage(operator, `Uusi ilmoitus tarkistettavana:\n\n${announcement}\n\nTapahtuman tiedot:\n${eventDetails}\n\nReagoi 👍 hyväksyäksesi tai 👎 hylätäksesi.`);
-  });
-};
-
-function parseEventDetails(eventDetailsString) {
-  const lines = eventDetailsString.split('\n');
-  const eventDetails = {};
-  
-  lines.forEach(line => {
-    const [key, value] = line.split(':');
-    if (key && value) {
-      eventDetails[key.trim().toLowerCase()] = value.trim();
-    }
-  });
-
-  return {
-    summary: eventDetails.title,
-    description: eventDetails.description,
-    start: {
-      dateTime: `${eventDetails.date}T${eventDetails.time}:00`,
-      timeZone: 'Europe/Helsinki',
-    },
-    end: {
-      dateTime: `${eventDetails.date}T${eventDetails.time}:00`,
-      timeZone: 'Europe/Helsinki',
-    },
-  };
-}
-
+// Start the bot
 console.log('Bot is running...');

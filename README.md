@@ -2,9 +2,11 @@
 
 Tiedottelija on full-stack-sovellus (opiskelija)tapahtumien ja toiminnan viestien automatisointiin. Sovellus tiivistää ja kääntää pitkät tekstit käyttäen ChatGPT:tä ja lähettää ne Telegram-bottiin, joka hoitaa viestien moderoinnin ja välittämisen Telegram-kanavalle.
 
-## Mitä tää tekee?
-
 Botti ottaa pitkät ja sekavat tapahtumaviestit ja tekee niistä lyhyitä ja nättejä ilmoituksia. Se kääntää ne myös englanniksi. Viesitn välityksen hoitaa moderaattori ennen kun ne menevät julkiselle tiedotuskanavalle.
+
+Kaikki eivät myöskään käytä Telegramia, joten lisätty myös frontend verkkoselain vuorovaikutukselle, tätä päivitetään hieman myöhemmin, koska tg on tässä pääasiallinen vuorovaikutuskanava.
+
+Botilla on myös myöhemmin kyky lisätä ilmoitettu tapahtuma suoraan kalenteriin kun se on hyväksytty ja sitä kautta myös suoraan sähköpostilistalle.
 
 ## Riippuvuudet
 
@@ -13,6 +15,7 @@ Botti ottaa pitkät ja sekavat tapahtumaviestit ja tekee niistä lyhyitä ja nä
 - Docker
 - OpenAI API
 - Telegram Bot API
+- React (legacy frontend)
 
 ## Komennot
 
@@ -42,14 +45,18 @@ Botti ottaa pitkät ja sekavat tapahtumaviestit ja tekee niistä lyhyitä ja nä
 - `/togglelanguage` - Vaihda suomen ja englannin kielen välillä
 - `/listmoderators` - Listaa botin moderaattorien käyttäjänimet
 
-## Miten tulla superadminiksi omassa botissa
+## Superadmin omassa botissasi
 
 1. Luo oma Telegram-botti @BotFather:in kautta
 2. Aseta botin token ympäristömuuttujiin
 3. Käynnistä botti
 4. Lähetä botille komento `/sudosu`
-5. Syötä ylläpitäjän käyttäjänimi (aseta tämä koodissa)
-6. Syötä ylläpitäjän salasana (aseta tämä ympäristömuuttujissa)
+5. Syötä ylläpitäjän tunnukset jotka kansiossa /backend/src/admin_credentials.js
+
+#### admin_crenedtials.js sisältöesimerkki:
+module-exports = {username: 'foo', password: 'bar'};
+
+MUISTA että kuka tahansa botin käyttäjä voi käyttää näitä tunnuksia tullakseen pääkäyttäjäksi, joten pidä päättämäsi tunnukset turvassa.
 
 ## Setuppaus
 

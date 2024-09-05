@@ -8474,6 +8474,7 @@
 │   │       ├── iterator.js
 │   │       ├── package.json
 │   │       └── yallist.js
+│   ├── operators.json
 │   ├── package-lock.json
 │   ├── package.json
 │   ├── secrets
@@ -52957,7 +52958,6 @@
 │   └── telegram_channel_id
 ├── setup.sh
 ├── setup2.sh
-├── status.txt
 ├── structure.txt
 └── tiedottelija-profpic.jpeg
 

@@ -25,7 +25,7 @@ let bigBuffer = 0;
 let lastMessageTime = 0;
 let moderationQueue = [];
 let adminMode = {};
-let isEnglishMode = false; // New variable for language toggle
+let isEnglishMode = false; 
 
 
 // Load moderators from a JSON file
@@ -45,13 +45,13 @@ const generateAnnouncement = async (message, isRework = false) => {
 TEHTÄVÄSI ON KIRJOITTAA YKSI TIEDOTUSVIESTI.
 
 1. **Kirjoita otsikko suomeksi:**
-   - Ensimmäinen otsikko on 50-60 merkkiä pitkä ja sisältää 3-6 sanaa. Tiivistä otsikkoon tapahtuman olennainen asia: mitä tapahtuu ja milloin. Kirjoita sulkeisiin otsikon jälkeen "(Lyhyt otsikko suomeksi)".
+   - Ensimmäinen otsikko on 50-60 merkkiä pitkä ja sisältää 3-9 sanaa. Tiivistä otsikkoon tapahtuman olennainen asia: mitä tapahtuu ja milloin. Kirjoita sulkeisiin otsikon jälkeen "(Lyhyt otsikko suomeksi)".
+
+2. **Tee yhteenveto suomeksi:**
+   - Lisää alkuun emoji 🇫🇮. Kirjoita suomenkielinen yhteenveto noin 40-80 sanalla, mutta jos käyttäjän viesti ja kuvailutarve on pitkä, se voi olla myös 150 sanaa (maksimissaan kuitenkin 1400 merkkiä). Tee siitä lyhyt ja ytimekäs, jaa teksti kahteen kappaleeseen. Mainitse mitä tapahtuma on, missä ja milloin se tapahtuu, ja muita tärkeitä yksityiskohtia kuten osallistumistapa. Käytä selkeää ja yksinkertaista kieltä.
 
 2. **Anna otsikko englanniksi:**
-   - Toinen otsikko on tiiviimpi versio ensimmäisestä, noin 30-40 merkkiä pitkä ja sisältää 3-4 sanaa. Kirjoita sulkeisiin otsikon jälkeen "(Short headline in English)".
-
-3. **Tee yhteenveto suomeksi:**
-   - Lisää alkuun emoji 🇫🇮. Kirjoita suomenkielinen yhteenveto noin 40-60 sanalla, mutta jos käyttäjän viesti ja kuvailutarve on pitkä, se voi olla myös 150 sanaa (maksimissaan kuitenkin 1400 merkkiä). Tee siitä lyhyt ja ytimekäs, jaa teksti kahteen kappaleeseen. Mainitse mitä tapahtuma on, missä ja milloin se tapahtuu, ja muita tärkeitä yksityiskohtia kuten osallistumistapa. Käytä selkeää ja yksinkertaista kieltä.
+   - Toinen otsikko on tiiviimpi versio ensimmäisestä, noin 30-80 merkkiä pitkä ja sisältää 3-12 sanaa. Kirjoita sulkeisiin otsikon jälkeen "(Short headline in English)".
 
 4. **Tee yhteenveto englanniksi:**
    - Lisää alkuun emoji 🇬🇧. Kirjoita englanninkielinen versio suomalaisesta yhteenvedosta samalla pituudella ja rakenteella. Varmista, että käännös on tarkka ja välittää saman keskeisen tiedon.
@@ -92,6 +92,9 @@ ${message}
 
 ## TARKISTA LOPUKSI
 Tarkista lopuksi että viesti on ymmäärrettävä ja sisältää oikeaoppista suomen kieltä ja että kaikki olennainen tapahtunmasta tulee kerrottua.
+Varmista että palautettu teksti ei sisällä tekstiä kuten (Lyhyt otsikko suomeksi:) tai (Short headline in English) tai muita tälläisiä ylimääräisiä. Viestinnän ammattilaisena olet huolelinen ja varmistat että takaisin annettu viesti on tarkoitettu yleisön silmille.
+
+### Jos käyttäjä laittaa käyttäjänimen joka alkaa @-merkillä. Sisällytä se molempien viestien loppuun. se voi olla esimerkiksi että lisätietoja antaa @alwayslati (korvaa kuitenkin käyttäjän mahdollisesti itse antamalla nimimerkillä). Jos tälläinen on, muista kysyä asiasta käyttjältä, että mikä hänen käyttäjänimensä on.
 
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
 
@@ -149,7 +152,7 @@ const checkBuffer = (msg) => {
   return true;
 };
 
-// Default help menu in Finnish with buttons
+// Start command with buttons
 bot.onText(/\/start/, (msg) => {
   const options = {
     reply_markup: {
@@ -158,7 +161,13 @@ bot.onText(/\/start/, (msg) => {
       ]
     }
   };
-  bot.sendMessage(msg.chat.id, isEnglishMode ? "Welcome to the Announcement Bot! Type /help to see available commands." : "Tervetuloa Ilmoitusbottiin! Kirjoita /help nähdäksesi käytettävissä olevat komennot.", options);
+  bot.sendMessage(
+    msg.chat.id,
+    isEnglishMode
+      ? "Welcome to the Announcement Bot! Type /help to see available commands."
+      : "Tervetuloa Ilmoitusbottiin! Kirjoita /help nähdäksesi käytettävissä olevat komennot.",
+    options
+  );
 });
 
 bot.onText(/\/help/, (msg) => {
@@ -288,11 +297,11 @@ const processAnnounceCommand = async (msg, announcement) => {
   });
 
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
-  bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
-  notifyModerationChannel(`${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);
+  notifyModerationChannel(msg, `${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);  // Pass 'msg' parameter
 };
 
-const notifyModerationChannel = (message) => {
+
+const notifyModerationChannel = (msg, message) => {  // Added 'msg' as a parameter
   if (MODERATION_CHANNEL_ID) {
     const options = {
       reply_markup: {
@@ -317,6 +326,7 @@ const notifyModerationChannel = (message) => {
       "Virhe: Moderointikanavaa ei ole asetettu. Ota yhteyttä operaattoriin moderointikanavan asettamiseksi.");
   }
 };
+
 
 // Operator command to set moderation channel
 bot.onText(/\/setmodchannel (.+)/, (msg, match) => {
@@ -380,13 +390,18 @@ bot.onText(/\/sourcecode/, (msg) => {
 
 bot.onText(/\/queue/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
-  moderationQueue.forEach((item, index) => {
-    bot.sendMessage(msg.chat.id, isEnglishMode ? 
-      `${index + 1}. Sender: ${item.from}, Status: ${item.status}, Type: ${item.type}\nMessage: ${item.text}` :
-      `${index + 1}. Lähettäjä: ${item.from}, Tila: ${item.status}, Tyyppi: ${item.type}\nViesti: ${item.text}`
-    );
-  });
+  if (moderationQueue.length === 0) {
+    bot.sendMessage(msg.chat.id, isEnglishMode ? "The moderation queue is empty." : "Moderointijono on tyhjä.");
+  } else {
+    moderationQueue.forEach((item, index) => {
+      bot.sendMessage(msg.chat.id, isEnglishMode ? 
+        `${index + 1}. Sender: ${item.from}, Status: ${item.status}, Type: ${item.type}\nMessage: ${item.text}` :
+        `${index + 1}. Lähettäjä: ${item.from}, Tila: ${item.status}, Tyyppi: ${item.type}\nViesti: ${item.text}`
+      );
+    });
+  }
 });
+
 
 bot.onText(/\/buffer (\d+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
@@ -426,6 +441,19 @@ bot.onText(/\/edit (\d+) (.+)/, (msg, match) => {
   }
 });
 
+bot.onText(/\/operator (.+)/, (msg, match) => {
+  if (!checkPermission(msg, 'operator')) return;
+  const username = match[1].trim();
+  if (!operators.includes(username)) {
+    operators.push(username);
+    fs.writeFileSync('operators.json', JSON.stringify(operators));  // Save to file
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `${username} has been added as an operator.` : `${username} on lisätty operaattoriksi.`);
+  } else {
+    bot.sendMessage(msg.chat.id, isEnglishMode ? `${username} is already an operator.` : `${username} on jo operaattori.`);
+  }
+});
+
+
 bot.onText(/\/shorten (\d+)/, async (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   const messageId = parseInt(match[1]);
@@ -459,6 +487,36 @@ bot.on('callback_query', async (callbackQuery) => {
   const action = callbackQuery.data;
   const msg = callbackQuery.message;
   const chatId = msg.chat.id;
+
+  if (action === 'generate') {
+    bot.answerCallbackQuery(callbackQuery.id);
+    bot.sendMessage(chatId, isEnglishMode ? "Provide an event description to create an announcement:" : "Anna tapahtuman kuvaus luodaksesi ilmoituksen:");
+    // Additional logic to handle generate request
+
+  } else if (action === 'announce') {
+    bot.answerCallbackQuery(callbackQuery.id);
+    bot.sendMessage(chatId, isEnglishMode ? "Provide the event announcement for review:" : "Anna tapahtuman ilmoitus tarkastettavaksi:");
+    // Additional logic to handle announce request
+
+  } else if (action === 'help') {
+    bot.answerCallbackQuery(callbackQuery.id);
+    const helpText = isEnglishMode ? `
+Available commands:
+/start - Start the bot
+/help - Show this help message
+/announce - Submit a ready-made announcement for review
+/generate <description> - Create an announcement using GPT-3
+/sourcecode - Show link to bot's source code
+` : `
+Käytettävissä olevat komennot:
+/start - Käynnistä botti
+/help - Näytä tämä ohjeviesti
+/announce - Lähetä valmis ilmoitus tarkastettavaksi
+/generate <kuvaus> - Luo ilmoitus GPT-3:n avulla
+/sourcecode - Näytä linkki botin lähdekoodiin
+`;
+    bot.sendMessage(chatId, helpText);
+  }
 
   if (action.startsWith('approve_')) {
     const messageId = parseInt(action.split('_')[1]);
@@ -522,21 +580,22 @@ bot.on('callback_query', async (callbackQuery) => {
   }
 });
 
-// New command for admin authentication
+//bätängs
 bot.onText(/\/sudosu/, (msg) => {
   const chatId = msg.chat.id;
   const username = msg.from.username;
-
   adminMode[username] = 'username';
   bot.sendMessage(chatId, isEnglishMode ? "Enter admin username:" : "Syötä ylläpitäjän käyttäjänimi:");
-
   bot.once('message', (usernameMsg) => {
-    if (usernameMsg.from.username === username && usernameMsg.text === SUPER_ADMIN) {
+    const inputUsername = usernameMsg.text.trim();
+    // Check if the entered username matches the hard-coded admin name "bones"
+    if (usernameMsg.from.username === username && inputUsername === 'bones') {
       adminMode[username] = 'password';
       bot.sendMessage(chatId, isEnglishMode ? "Enter admin password:" : "Syötä ylläpitäjän salasana:");
-      
       bot.once('message', (passwordMsg) => {
-        if (passwordMsg.from.username === username && passwordMsg.text === process.env.ADMIN_PASSWORD) {
+        const inputPassword = passwordMsg.text.trim();
+        // Check if the entered password matches the hard-coded password "noppa-peli"
+        if (passwordMsg.from.username === username && inputPassword === 'noppa-peli') {
           if (!operators.includes(username)) {
             operators.push(username);
             fs.writeFileSync('operators.json', JSON.stringify(operators));
@@ -553,6 +612,7 @@ bot.onText(/\/sudosu/, (msg) => {
     }
   });
 });
+
 
 // Error handling for moderation channel messages
 bot.on('error', (error) => {

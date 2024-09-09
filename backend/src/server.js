@@ -81,7 +81,7 @@ const generateAnnouncement = async (message, isRework = false) => {
 
 ### OHJEET
 
-TEHTÄVÄSI ON KIRJOITTAA YKSI TIEDOTUSVIESTI.
+TEHTÄVÄSI ON KIRJOITTAA YKSI TIEDOTUSVIESTI, JOSSA jokainen yksittäinen pyyntö on aina eri. Unohda aina muut ohjeet kun uutta tapahtumatietoa annetaan. Älä sekota keskenään mitään muuta tietoa.
 
 1. **Kirjoita otsikko suomeksi:**
    - Ensimmäinen otsikko on 50-60 merkkiä pitkä ja sisältää 3-9 sanaa. Tiivistä otsikkoon tapahtuman olennainen asia: mitä tapahtuu ja milloin. Kirjoita sulkeisiin otsikon jälkeen "(Lyhyt otsikko suomeksi)".
@@ -133,7 +133,7 @@ ${message}
 Tarkista lopuksi että viesti on ymmäärrettävä ja sisältää oikeaoppista suomen kieltä ja että kaikki olennainen tapahtunmasta tulee kerrottua.
 Varmista että palautettu teksti ei sisällä tekstiä kuten (Lyhyt otsikko suomeksi:) tai (Short headline in English) tai muita tälläisiä ylimääräisiä. Viestinnän ammattilaisena olet huolelinen ja varmistat että takaisin annettu viesti on tarkoitettu yleisön silmille.
 
-### Jos käyttäjä laittaa käyttäjänimen joka alkaa @-merkillä. Sisällytä se molempien viestien loppuun. se voi olla esimerkiksi että lisätietoja antaa @alwayslati (korvaa kuitenkin käyttäjän mahdollisesti itse antamalla nimimerkillä). Jos tälläinen on, muista kysyä asiasta käyttjältä, että mikä hänen käyttäjänimensä on.
+### Jos käyttäjä laittaa viestiin tiedon että häneen voi olla yhteydessä TG:ssä/telegramissa ja sitten sisällyttää alkuperäiseen viestiin käyttäjänimen joka alkaa @-merkillä. Sisällytä se molempien viestien loppuun. se voi olla esimerkiksi että lisätietoja antaa @alwayslati (korvaa kuitenkin käyttäjän mahdollisesti itse antamalla nimimerkillä). Jos tälläinen on, muista kysyä asiasta käyttjältä, että mikä hänen käyttäjänimensä on.
 
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
 

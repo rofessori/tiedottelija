@@ -66,6 +66,8 @@ let moderationQueue = [];
 let adminMode = {};
 let isEnglishMode = false; 
 
+// New: Add user conversations map
+const userConversations = new Map();
 
 // Load moderators from a JSON file
 let moderators = [];
@@ -76,7 +78,9 @@ try {
   moderators = []; // Initialize as empty array if file doesn't exist or is invalid
 }
 
-const generateAnnouncement = async (message, isRework = false) => {
+const generateAnnouncement = async (message, isRework = false, userId) => {
+  let conversation = userConversations.get(userId) || [];
+  
   let prompt = `Olet viestintäasiantuntija, joka luo ytimekkäitä ja selkeitä ilmoituksia opiskelijatapahtumista. Kun saat tekstin, muotoile siitä tiivis ja informatiivinen ilmoitus sekä suomeksi että englanniksi alla olevan ohjeen mukaisesti.
 
 ### OHJEET
@@ -138,13 +142,18 @@ Varmista että palautettu teksti ei sisällä tekstiä kuten (Lyhyt otsikko suom
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
 
   try {
+    conversation.push({ role: "user", content: prompt });
+    
     const completion = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",
-      messages: [{ role: "user", content: prompt }],
+      messages: conversation,
       max_tokens: 500,
     });
 
     const response = completion.choices[0].message.content.trim();
+    conversation.push({ role: "assistant", content: response });
+    userConversations.set(userId, conversation);
+
     if (response.includes("Lisätietoja tarvitaan") || response.includes("More information needed")) {
       return { text: response, needsMoreInfo: true };
     }
@@ -217,6 +226,7 @@ Available commands:
 /announce - Submit a ready-made announcement for review
 /generate <description> - Create an announcement using GPT-3
 /sourcecode - Show link to bot's source code
+/clearmemory - Clear your conversation history with the bot
   ` : `
 Käytettävissä olevat komennot:
 /start - Käynnistä botti
@@ -224,6 +234,7 @@ Käytettävissä olevat komennot:
 /announce - Lähetä valmis ilmoitus tarkastettavaksi
 /generate <kuvaus> - Luo ilmoitus GPT-3:n avulla
 /sourcecode - Näytä linkki botin lähdekoodiin
+/clearmemory - Tyhjennä keskusteluhistoriasi botin kanssa
   `;
   bot.sendMessage(msg.chat.id, helpText);
 });
@@ -286,8 +297,9 @@ bot.onText(/\/generate(.*)/, async (msg, match) => {
 });
 
 const processGenerateCommand = async (msg, userInput) => {
+  const userId = msg.from.id;
   try {
-    const { text: announcement, needsMoreInfo } = await generateAnnouncement(userInput);
+    const { text: announcement, needsMoreInfo } = await generateAnnouncement(userInput, false, userId);
     if (needsMoreInfo) {
       bot.sendMessage(msg.chat.id, isEnglishMode ? "More information needed. Please provide:" : "Lisätietoja tarvitaan. Ole hyvä ja kerro:");
       bot.sendMessage(msg.chat.id, announcement);
@@ -336,11 +348,10 @@ const processAnnounceCommand = async (msg, announcement) => {
   });
 
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
-  notifyModerationChannel(msg, `${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);  // Pass 'msg' parameter
+  notifyModerationChannel(msg, `${isEnglishMode ? 'New announcement for review:' : 'Uusi ilmoitus tarkistettavana:'}\n\n${announcement}`);
 };
 
-
-const notifyModerationChannel = (msg, message) => {  // Added 'msg' as a parameter
+const notifyModerationChannel = (msg, message) => {
   if (MODERATION_CHANNEL_ID) {
     const options = {
       reply_markup: {
@@ -366,7 +377,6 @@ const notifyModerationChannel = (msg, message) => {  // Added 'msg' as a paramet
   }
 };
 
-
 // Operator command to set moderation channel
 bot.onText(/\/setmodchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
@@ -374,7 +384,6 @@ bot.onText(/\/setmodchannel (.+)/, (msg, match) => {
   saveChannels();  // Save to file
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Moderation channel set to: ${MODERATION_CHANNEL_ID}` : `Moderointikanava asetettu: ${MODERATION_CHANNEL_ID}`);
 });
-
 
 bot.onText(/\/setchannel (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
@@ -444,7 +453,6 @@ bot.onText(/\/queue/, (msg) => {
   }
 });
 
-
 bot.onText(/\/buffer (\d+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   const minutes = parseInt(match[1]);
@@ -454,6 +462,7 @@ bot.onText(/\/buffer (\d+)/, (msg, match) => {
     bot.sendMessage(msg.chat.id, isEnglishMode ? `Buffer time set to ${minutes} minutes.` : `Puskuriaika asetettu ${minutes} minuutiksi.`);
   } else {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Set buffer time between 1-360 minutes." : "Määritä puskuriaika välillä 1-360 minuuttia.");
+
   }
 });
 
@@ -495,13 +504,12 @@ bot.onText(/\/operator (.+)/, (msg, match) => {
   }
 });
 
-
 bot.onText(/\/shorten (\d+)/, async (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   const messageId = parseInt(match[1]);
   const queueItem = moderationQueue.find(item => item.id === messageId);
   if (queueItem) {
-    const { text: shortenedText } = await generateAnnouncement(queueItem.text, true);
+    const { text: shortenedText } = await generateAnnouncement(queueItem.text, true, msg.from.id);
     queueItem.text = shortenedText;
     bot.sendMessage(msg.chat.id, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
     notifyModerationChannel(isEnglishMode ? `Announcement shortened:\n\n${shortenedText}` : `Ilmoitus lyhennetty:\n\n${shortenedText}`);
@@ -524,11 +532,19 @@ bot.onText(/\/togglelanguage/, (msg) => {
   bot.sendMessage(msg.chat.id, isEnglishMode ? "Bot is now speaking in English." : "Botti puhuu nyt suomea.");
 });
 
+// New: Add /clearmemory command
+bot.onText(/\/clearmemory/, (msg) => {
+  const userId = msg.from.id;
+  userConversations.delete(userId);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? "Your conversation history has been cleared." : "Keskusteluhistoriasi on tyhjennetty.");
+});
+
 // Handle inline button callbacks
 bot.on('callback_query', async (callbackQuery) => {
   const action = callbackQuery.data;
   const msg = callbackQuery.message;
   const chatId = msg.chat.id;
+  const userId = callbackQuery.from.id;
 
   if (action === 'generate') {
     bot.answerCallbackQuery(callbackQuery.id);
@@ -549,6 +565,7 @@ Available commands:
 /announce - Submit a ready-made announcement for review
 /generate <description> - Create an announcement using GPT-3
 /sourcecode - Show link to bot's source code
+/clearmemory - Clear your conversation history with the bot
 ` : `
 Käytettävissä olevat komennot:
 /start - Käynnistä botti
@@ -556,6 +573,7 @@ Käytettävissä olevat komennot:
 /announce - Lähetä valmis ilmoitus tarkastettavaksi
 /generate <kuvaus> - Luo ilmoitus GPT-3:n avulla
 /sourcecode - Näytä linkki botin lähdekoodiin
+/clearmemory - Tyhjennä keskusteluhistoriasi botin kanssa
 `;
     bot.sendMessage(chatId, helpText);
   }
@@ -605,14 +623,14 @@ Käytettävissä olevat komennot:
           break;
         case 'regenerate':
           bot.answerCallbackQuery(callbackQuery.id);
-          const { text: regeneratedText } = await generateAnnouncement(queueItem.originalInput || queueItem.text);
+          const { text: regeneratedText } = await generateAnnouncement(queueItem.originalInput || queueItem.text, false, userId);
           queueItem.text = regeneratedText;
           bot.sendMessage(chatId, isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
           notifyModerationChannel(isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
           break;
         case 'shorten':
           bot.answerCallbackQuery(callbackQuery.id);
-          const { text: shortenedText } = await generateAnnouncement(queueItem.text, true);
+          const { text: shortenedText } = await generateAnnouncement(queueItem.text, true, userId);
           queueItem.text = shortenedText;
           bot.sendMessage(chatId, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
           notifyModerationChannel(isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
@@ -654,7 +672,6 @@ bot.onText(/\/sudosu/, (msg) => {
     }
   });
 });
-
 
 // Error handling for moderation channel messages
 bot.on('error', (error) => {

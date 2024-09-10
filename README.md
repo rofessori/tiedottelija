@@ -15,7 +15,7 @@ Botilla on myös myöhemmin kyky lisätä ilmoitettu tapahtuma suoraan kalenteri
 - Docker
 - OpenAI API
 - Telegram Bot API
-- React (legacy frontend)
+- React (local frontend, debug)
 
 ## Komennot
 

@@ -4,11 +4,9 @@ const fs = require('fs');
 const OpenAI = require('openai');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
-
 // Define paths to store channel and operator data
 const CHANNELS_FILE = path.join(__dirname, 'data', 'channels.json');
 const OPERATORS_FILE = path.join(__dirname, 'data', 'operators.json');
-
 // Ensure data directory exists
 const ensureDataDirectoryExists = () => {
   const dataDir = path.join(__dirname, 'data');
@@ -16,13 +14,9 @@ const ensureDataDirectoryExists = () => {
     fs.mkdirSync(dataDir);
   }
 };
-
 ensureDataDirectoryExists();
-
 dotenv.config();
-
 const readSecret = (filepath) => fs.readFileSync(filepath, 'utf8').trim();
-
 const openai = new OpenAI({
   apiKey: readSecret(process.env.OPENAI_API_KEY_FILE),
 });
@@ -81,7 +75,6 @@ let moderationQueue = [];
 let adminMode = {};
 let isEnglishMode = false; 
 
-// New: Add user conversations map
 const userConversations = new Map();
 
 // Load moderators from a JSON file

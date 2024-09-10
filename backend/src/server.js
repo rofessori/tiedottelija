@@ -2,8 +2,8 @@ const TelegramBot = require('node-telegram-bot-api');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const OpenAI = require('openai');
-
-const path = require('path'); // Import path module for cleaner file path management
+const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 
 // Define paths to store channel and operator data
 const CHANNELS_FILE = path.join(__dirname, 'data', 'channels.json');
@@ -17,7 +17,7 @@ const ensureDataDirectoryExists = () => {
   }
 };
 
-ensureDataDirectoryExists();  // Call function to ensure directory is created
+ensureDataDirectoryExists();
 
 dotenv.config();
 
@@ -28,6 +28,21 @@ const openai = new OpenAI({
 });
 
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
+
+// Initialize SQLite database
+const db = new sqlite3.Database('./messages.db', (err) => {
+  if (err) {
+    console.error('Error opening database', err);
+  } else {
+    console.log('Connected to the SQLite database.');
+    db.run(`CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      client_id TEXT,
+      message TEXT,
+      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )`);
+  }
+});
 
 // Function to save channels to JSON file
 const saveChannels = () => {
@@ -153,6 +168,13 @@ Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään 
     const response = completion.choices[0].message.content.trim();
     conversation.push({ role: "assistant", content: response });
     userConversations.set(userId, conversation);
+
+    // Store the generated message in the database
+    db.run('INSERT INTO messages (client_id, message) VALUES (?, ?)', [userId, response], (err) => {
+      if (err) {
+        console.error('Error storing message in database:', err);
+      }
+    });
 
     if (response.includes("Lisätietoja tarvitaan") || response.includes("More information needed")) {
       return { text: response, needsMoreInfo: true };
@@ -462,7 +484,6 @@ bot.onText(/\/buffer (\d+)/, (msg, match) => {
     bot.sendMessage(msg.chat.id, isEnglishMode ? `Buffer time set to ${minutes} minutes.` : `Puskuriaika asetettu ${minutes} minuutiksi.`);
   } else {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Set buffer time between 1-360 minutes." : "Määritä puskuriaika välillä 1-360 minuuttia.");
-
   }
 });
 
@@ -486,7 +507,7 @@ bot.onText(/\/edit (\d+) (.+)/, (msg, match) => {
   if (queueItem) {
     queueItem.text = newText;
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement updated in queue." : "Ilmoitus päivitetty jonossa.");
-    notifyModerationChannel(isEnglishMode ? `Announcement updated:\n\n${newText}` : `Ilmoitus päivitetty:\n\n${newText}`);
+    notifyModerationChannel(msg, isEnglishMode ? `Announcement updated:\n\n${newText}` : `Ilmoitus päivitetty:\n\n${newText}`);
   } else {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement not found in queue." : "Ilmoitusta ei löydy jonosta.");
   }
@@ -512,7 +533,7 @@ bot.onText(/\/shorten (\d+)/, async (msg, match) => {
     const { text: shortenedText } = await generateAnnouncement(queueItem.text, true, msg.from.id);
     queueItem.text = shortenedText;
     bot.sendMessage(msg.chat.id, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
-    notifyModerationChannel(isEnglishMode ? `Announcement shortened:\n\n${shortenedText}` : `Ilmoitus lyhennetty:\n\n${shortenedText}`);
+    notifyModerationChannel(msg, isEnglishMode ? `Announcement shortened:\n\n${shortenedText}` : `Ilmoitus lyhennetty:\n\n${shortenedText}`);
   } else {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Announcement not found in queue." : "Ilmoitusta ei löydy jonosta.");
   }
@@ -572,7 +593,7 @@ Käytettävissä olevat komennot:
 /help - Näytä tämä ohjeviesti
 /announce - Lähetä valmis ilmoitus tarkastettavaksi
 /generate <kuvaus> - Luo ilmoitus GPT-3:n avulla
-/sourcecode - Näytä linkki botin lähdekoodiin
+/sourcecode - Näytä linkki botin lähdekoodiin 
 /clearmemory - Tyhjennä keskusteluhistoriasi botin kanssa
 `;
     bot.sendMessage(chatId, helpText);
@@ -595,7 +616,7 @@ Käytettävissä olevat komennot:
       if (queueItem) {
         queueItem.text = editMsg.text;
         bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
-        notifyModerationChannel(isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
+        notifyModerationChannel(msg, isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
       }
     });
   } else if (action === 'approve' || action === 'reject' || action === 'edit' || action === 'regenerate' || action === 'shorten') {
@@ -618,7 +639,7 @@ Käytettävissä olevat komennot:
           bot.once('message', async (editMsg) => {
             queueItem.text = editMsg.text;
             bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
-            notifyModerationChannel(isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
+            notifyModerationChannel(msg, isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
           });
           break;
         case 'regenerate':
@@ -626,14 +647,14 @@ Käytettävissä olevat komennot:
           const { text: regeneratedText } = await generateAnnouncement(queueItem.originalInput || queueItem.text, false, userId);
           queueItem.text = regeneratedText;
           bot.sendMessage(chatId, isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
-          notifyModerationChannel(isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
+          notifyModerationChannel(msg, isEnglishMode ? `Regenerated announcement:\n\n${regeneratedText}` : `Uudelleenluotu ilmoitus:\n\n${regeneratedText}`);
           break;
         case 'shorten':
           bot.answerCallbackQuery(callbackQuery.id);
           const { text: shortenedText } = await generateAnnouncement(queueItem.text, true, userId);
           queueItem.text = shortenedText;
           bot.sendMessage(chatId, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
-          notifyModerationChannel(isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
+          notifyModerationChannel(msg, isEnglishMode ? `Shortened announcement:\n\n${shortenedText}` : `Lyhennetty ilmoitus:\n\n${shortenedText}`);
           break;
       }
     }
@@ -683,3 +704,14 @@ bot.on('error', (error) => {
 
 // Start the bot
 console.log('Bot is running...');
+
+// Close the database connection when the bot is terminated
+process.on('SIGINT', () => {
+  db.close((err) => {
+    if (err) {
+      console.error(err.message);
+    }
+    console.log('Closed the database connection.');
+    process.exit(0);
+  });
+});

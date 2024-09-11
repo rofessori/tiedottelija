@@ -7,9 +7,9 @@ cd "$INSTALL_DIR" || exit
 
 # Create .env file and add your API keys
 cat << EOF > .env
-OPENAI_API_KEY=your_actual_openai_api_key
-TELEGRAM_BOT_TOKEN=your_actual_telegram_bot_token
-TELEGRAM_CHANNEL_ID=your_actual_telegram_channel_id
+OPENAI_API_KEY=your_actual_secret_openai_api_key
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+TELEGRAM_CHANNEL_ID=your_telegram_channel_id
 REACT_APP_API_URL=http://localhost:3001
 PORT=3001
 EOF
@@ -179,7 +179,12 @@ EXPOSE 3001
 CMD ["node", "src/server.js"]
 EOF
 
-cat > backend/package.json << EOF
+# Initialize backend and install dependencies
+cd backend
+npm init -y
+npm install express cors dotenv openai node-telegram-bot-api
+
+cat > package.json << EOF
 {
   "name": "message-handler-backend",
   "version": "1.0.0",
@@ -194,7 +199,7 @@ cat > backend/package.json << EOF
 }
 EOF
 
-cat > backend/src/server.js << EOF
+cat > src/server.js << EOF
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
@@ -240,7 +245,7 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(\`Server running on port \${PORT}\`));
 EOF
 
-cat > backend/src/telegramBot.js << EOF
+cat > src/telegramBot.js << EOF
 const TelegramBot = require('node-telegram-bot-api');
 const dotenv = require('dotenv');
 
@@ -282,8 +287,13 @@ module.exports = {
 };
 EOF
 
-# Install dependencies
-cd frontend && npm install
-cd ../backend && npm install
+cd ..
+
+# Install dependencies for frontend
+cd frontend
+npm init -y
+npm install react react-dom @material-ui/core axios
+
+cd ..
 
 echo "Setup complete. You can now run 'docker-compose up --build' to start the application."

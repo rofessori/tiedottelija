@@ -7,6 +7,7 @@ const sqlite3 = require('sqlite3').verbose();
 // Define paths to store channel and operator data
 const CHANNELS_FILE = path.join(__dirname, 'data', 'channels.json');
 const OPERATORS_FILE = path.join(__dirname, 'data', 'operators.json');
+
 // Ensure data directory exists
 const ensureDataDirectoryExists = () => {
   const dataDir = path.join(__dirname, 'data');
@@ -14,6 +15,7 @@ const ensureDataDirectoryExists = () => {
     fs.mkdirSync(dataDir);
   }
 };
+
 ensureDataDirectoryExists();
 dotenv.config();
 const readSecret = (filepath) => fs.readFileSync(filepath, 'utf8').trim();

@@ -60,6 +60,7 @@ Tarkoituksena parantaa bottin toimintaa, tuoda lisää koheesiota konfiguraatioi
 - [ ] Vinkkaa jos komento on väärä
 - [X] Tuki englanninkieliselle tilalle.
 - [X] Moderaattorin kyky muokata ja hyväksyä/hylätä ilmoitukset.
+- [X] Maininta järkevästä tietosuojaselosteen ylläpitämisestä.
 
 **Won't fix:**
 - Vanha frontend jätetään sellaiseksi kuin se on.

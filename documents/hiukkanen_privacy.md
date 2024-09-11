@@ -12,7 +12,7 @@ Tiedottaja-sovelluksen käyttäjärekisteri
 
 ## 3. Henkilötietojen käsittelyn tarkoitus
 
-Henkilötietoja käsitellään seuraaviin tarkoituksiin:
+Henkilötietoja käsitellään tämän käyttäjärekisterin näkökulmasta Hiukkanen ry:n ylläpitämän @tiedottaja_bot ohjelman tapauksessa seuraaviin tarkoituksiin:
 - Käyttäjien tunnistaminen ja käyttöoikeuksien hallinta
 - Tiedotteiden luominen ja lähettäminen
 - Sovelluksen toiminnan ylläpito ja kehittäminen
@@ -58,5 +58,9 @@ Henkilötietoja säilytetään vain niin kauan kuin on tarpeen niiden käsittely
 ## 12. Tietosuojaselosteen muuttaminen
 
 Pidätämme oikeuden muuttaa tätä tietosuojaselostetta. Muutoksista ilmoitetaan rekisteröidyille sähköpostitse tai sovelluksen kautta.
+
+# 13. Lisätiedot
+
+Tätä tietosuojaselostetta sovelletaan kokonaisuudessaan ainoastaan Hiukkanen ry:n ylläpitämän @tiedottaja_bot Telegram-ohjelman tapauksessa. Muutoin tämän avoimen lähdekoodin sovelluksen ylläpitäjä on velvoitettu muokkaamaan tätä tietosuojakäytäntöä.
 
 Viimeksi päivitetty: 4.9.2024

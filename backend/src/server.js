@@ -25,6 +25,11 @@ const openai = new OpenAI({
 
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
 
+//messagelibrary setup
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 600 });
+
+
 // Initialize SQLite database
 const db = new sqlite3.Database('./messages.db', (err) => {
   if (err) {
@@ -39,6 +44,12 @@ const db = new sqlite3.Database('./messages.db', (err) => {
     )`);
   }
 });
+
+//messagecount – id values set
+let messageCounter = 0;
+const messageLibrary = [];
+let isLibraryEnabled = true;
+
 
 // Function to save channels to JSON file
 const saveChannels = () => {
@@ -88,10 +99,55 @@ try {
   moderators = []; // Initialize as empty array if file doesn't exist or is invalid
 }
 
+//get id call
+const getNextMessageId = () => {
+  messageCounter = (messageCounter + 1) % 100000;
+  return messageCounter.toString().padStart(5, '0');
+};
+
+const notifyModerators = (message) => {
+  // Implement this function to send notifications to moderators
+  // For example, you could send a message to the moderation channel
+  if (MODERATION_CHANNEL_ID) {
+    bot.sendMessage(MODERATION_CHANNEL_ID, message);
+  }
+};
+const createMessage = (text, from, type) => {
+  const id = getNextMessageId();
+  if (id === '00000') {
+    notifyModerators("Message ID counter has reset. Consider backing up message history.");
+  }
+  return { id, text, from, type, status: 'pending' };
+};
+const addToLibrary = (message) => {
+  if (isLibraryEnabled) {
+    messageLibrary.push(message);
+  }
+};
+const toggleLibrary = (enabled) => {
+  isLibraryEnabled = enabled;
+};
+const renameLibrary = (newName) => {
+  // Implementation for renaming the library file
+  // This is a placeholder. You might want to implement actual file renaming logic here
+  console.log(`Library renamed to ${newName}`);
+};
+const downloadLibrary = (chatId) => {
+  const libraryContent = JSON.stringify(messageLibrary, null, 2);
+  const buffer = Buffer.from(libraryContent, 'utf-8');
+  bot.sendDocument(chatId, buffer, { filename: 'message_library.json' });
+};
+
+
+
 const generateAnnouncement = async (message, isRework = false, userId) => {
   let conversation = userConversations.get(userId) || [];
   
   let prompt = `Olet viestintäasiantuntija, joka luo ytimekkäitä ja selkeitä ilmoituksia opiskelijatapahtumista. Kun saat tekstin, muotoile siitä tiivis ja informatiivinen ilmoitus sekä suomeksi että englanniksi alla olevan ohjeen mukaisesti.
+
+### ERITTÄIN TÄRKEÄÄ
+
+Alla annetaan sinulle lisätietoa alla kohdassa SINUN TYÖSTÄMÄSI TIEDOTTEEN SISÄLTÖ. Ole tarkka ja käytä vain tätä tekstiä luodessasi tiedotteen.
 
 ### OHJEET
 
@@ -138,16 +194,20 @@ TEHTÄVÄSI ON KIRJOITTAA YKSI TIEDOTUSVIESTI, JOSSA jokainen yksittäinen pyynt
 🇬🇧 "There are only a few spots left to SwedenXQ! 🏃🏼 If you hear the calling of Uppsala, head to your emails and secure your spot to this trip. The registration ends today. 🇸🇪"
 
 
-### NYT LUOTAVAN TIEDOTTEEN SISÄLTÖ:
+### SINUN TYÖSTÄMÄSI TIEDOTTEEN SISÄLTÖ:
 
 Käytä seuraavia tietoja luodaksesi ilmoituksen:
 ${message}
+
+## OIKEINKIRJOITUKSESTA:
+
+Kun puhut Hiukkasesta, suomeksi se kirjoitetaan Hiukkanen, monikossa omistusmuoto on Hiukkasen. Hiukkasen jäsenet ovat Hiukkasia (Hiukkaset).
 
 ## TARKISTA LOPUKSI
 Tarkista lopuksi että viesti on ymmäärrettävä ja sisältää oikeaoppista suomen kieltä ja että kaikki olennainen tapahtunmasta tulee kerrottua.
 Varmista että palautettu teksti ei sisällä tekstiä kuten (Lyhyt otsikko suomeksi:) tai (Short headline in English) tai muita tälläisiä ylimääräisiä. Viestinnän ammattilaisena olet huolelinen ja varmistat että takaisin annettu viesti on tarkoitettu yleisön silmille.
 
-### Jos käyttäjä laittaa viestiin tiedon että häneen voi olla yhteydessä TG:ssä/telegramissa ja sitten sisällyttää alkuperäiseen viestiin käyttäjänimen joka alkaa @-merkillä. Sisällytä se molempien viestien loppuun. se voi olla esimerkiksi että lisätietoja antaa @alwayslati (korvaa kuitenkin käyttäjän mahdollisesti itse antamalla nimimerkillä). Jos tälläinen on, muista kysyä asiasta käyttjältä, että mikä hänen käyttäjänimensä on.
+Jos JA VAIN JOS käyttäjä laittaa viestiin tiedon että häneen voi olla yhteydessä TG:ssä/telegramissa ja sitten sisällyttää alkuperäiseen viestiin käyttäjänimen joka alkaa @-merkillä. Sisällytä se molempien viestien loppuun. se voi olla esimerkiksi että lisätietoja antaa @alwayslati (korvaa kuitenkin käyttäjän mahdollisesti itse antamalla nimimerkillä). Jos tälläinen on, muista kysyä asiasta käyttjältä, että mikä hänen käyttäjänimensä on.
 
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
 
@@ -306,13 +366,18 @@ bot.onText(/\/generate(.*)/, async (msg, match) => {
   if (!userInput) {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "Provide an event description to create an announcement:" : "Anna tapahtuman kuvaus luodaksesi ilmoituksen:");
     bot.once('message', async (inputMsg) => {
-      await processGenerateCommand(msg, inputMsg.text);
+      if (inputMsg.text && inputMsg.text.trim()) {
+        await processGenerateCommand(msg, inputMsg.text);
+      } else {
+        bot.sendMessage(msg.chat.id, isEnglishMode ? "No input provided. Generation cancelled." : "Syötettä ei annettu. Luonti peruutettu.");
+      }
     });
   } else {
     await processGenerateCommand(msg, userInput);
   }
 });
 
+// Is this ever called?
 const processGenerateCommand = async (msg, userInput) => {
   const userId = msg.from.id;
   try {
@@ -435,6 +500,22 @@ bot.onText(/\/whiteliststop/, (msg) => {
   }
 });
 
+bot.onText(/\/togglelibrary/, (msg) => {
+  if (!checkPermission(msg, 'operator')) return;
+  isLibraryEnabled = !isLibraryEnabled;
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Message library is now ${isLibraryEnabled ? 'enabled' : 'disabled'}.` : `Viestikirjasto on nyt ${isLibraryEnabled ? 'käytössä' : 'pois käytöstä'}.`);
+});
+bot.onText(/\/renamelibrary (.+)/, (msg, match) => {
+  if (!checkPermission(msg, 'operator')) return;
+  const newName = match[1];
+  renameLibrary(newName);
+  bot.sendMessage(msg.chat.id, isEnglishMode ? `Library renamed to ${newName}` : `Kirjasto uudelleennimetty: ${newName}`);
+});
+bot.onText(/\/downloadlibrary/, (msg) => {
+  if (!checkPermission(msg, 'operator')) return;
+  downloadLibrary(msg.chat.id);
+});
+
 bot.onText(/\/ban (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   const userToBan = match[1];
@@ -462,13 +543,52 @@ bot.onText(/\/queue/, (msg) => {
     bot.sendMessage(msg.chat.id, isEnglishMode ? "The moderation queue is empty." : "Moderointijono on tyhjä.");
   } else {
     moderationQueue.forEach((item, index) => {
-      bot.sendMessage(msg.chat.id, isEnglishMode ? 
-        `${index + 1}. Sender: ${item.from}, Status: ${item.status}, Type: ${item.type}\nMessage: ${item.text}` :
-        `${index + 1}. Lähettäjä: ${item.from}, Tila: ${item.status}, Tyyppi: ${item.type}\nViesti: ${item.text}`
-      );
+      const message = `
+📝 *Message ${index + 1}*
+👤 Sender: ${item.from}
+🔹 Status: ${item.status}
+🔸 Type: ${item.type}
+
+${item.text}
+      `;
+      
+      const options = {
+        parse_mode: 'Markdown',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: '👍 Approve', callback_data: `approve_${item.id}` },
+              { text: '👎 Reject', callback_data: `reject_${item.id}` }
+            ],
+            [
+              { text: '✏️ Edit', callback_data: `edit_${item.id}` },
+              { text: '🔄 Regenerate', callback_data: `regenerate_${item.id}` }
+            ]
+          ]
+        }
+      };
+      bot.sendMessage(msg.chat.id, message, options);
     });
   }
 });
+
+const groupMessages = (messages, groupSize = 5) => {
+  const groupedMessages = [];
+  for (let i = 0; i < messages.length; i += groupSize) {
+    groupedMessages.push(messages.slice(i, i + groupSize).join('\n\n'));
+  }
+  return groupedMessages;
+};
+/* 
+// Use this function when sending multiple messages!
+const sendGroupedMessages = (chatId, messages) => {
+  const groupedMessages = groupMessages(messages);
+  groupedMessages.forEach((group, index) => {
+    bot.sendMessage(chatId, `Group ${index + 1}:\n\n${group}`);
+  });
+};
+*/
+
 
 bot.onText(/\/buffer (\d+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;

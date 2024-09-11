@@ -24,7 +24,7 @@ check_and_install() {
         elif command -v brew &> /dev/null; then
             brew install $1
         else
-            echo "Unable to install $1. You are on your own now."
+            echo "Unable to install $1. You are on your own now, install it manually."
             exit 1
         fi
     else

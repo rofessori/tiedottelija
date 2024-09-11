@@ -16,6 +16,7 @@
     "express": "^4.19.2",
     "googleapis": "^92.0.0",
     "node-telegram-bot-api": "^0.66.0",
-    "openai": "^4.56.1"
+    "openai": "^4.56.1",
+    "sqlite3": "https://github.com/mapbox/node-sqlite3/tarball/master"
   }
 }

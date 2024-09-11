@@ -1,5 +1,4 @@
 #!/bin/bash
-# File: ~/tiedottaja/setup_checker.sh
 
 # Find the installation directory
 SCRIPT_PATH=$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")
@@ -25,7 +24,7 @@ check_and_install() {
         elif command -v brew &> /dev/null; then
             brew install $1
         else
-            echo "Unable to install $1. Please install it manually."
+            echo "Unable to install $1. You are on your own now."
             exit 1
         fi
     else

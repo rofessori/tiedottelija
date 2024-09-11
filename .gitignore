@@ -4,6 +4,13 @@ secrets/
 *.env
 **/secrets/*.json
 
+#data
+/src/data/*.json
+
+#packets-lockfile
+**/src/package-lock.json
+package-lock.json
+
 # Ignore Node.js dependencies
 node_modules/
 

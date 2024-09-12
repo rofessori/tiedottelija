@@ -25,10 +25,6 @@ const openai = new OpenAI({
 
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
 
-//messagelibrary setup
-const NodeCache = require('node-cache');
-const cache = new NodeCache({ stdTTL: 600 });
-
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./messages.db', (err) => {
@@ -55,12 +51,10 @@ let isLibraryEnabled = true;
 const saveChannels = () => {
   fs.writeFileSync(CHANNELS_FILE, JSON.stringify({ TELEGRAM_CHANNEL_ID, MODERATION_CHANNEL_ID }, null, 2));
 };
-
 // Function to save operators to JSON file
 const saveOperators = () => {
   fs.writeFileSync(OPERATORS_FILE, JSON.stringify(operators, null, 2));
 };
-
 // Load channels from JSON file or initialize them
 let channels = { TELEGRAM_CHANNEL_ID: null, MODERATION_CHANNEL_ID: null };
 if (fs.existsSync(CHANNELS_FILE)) {
@@ -69,7 +63,6 @@ if (fs.existsSync(CHANNELS_FILE)) {
   fs.writeFileSync(CHANNELS_FILE, JSON.stringify(channels, null, 2));
 }
 let { TELEGRAM_CHANNEL_ID, MODERATION_CHANNEL_ID } = channels;  // Destructure channels
-
 // Load operators from JSON file or initialize them
 const SUPER_ADMIN = '@kahvirulla';
 let operators = [SUPER_ADMIN];
@@ -244,11 +237,8 @@ Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään 
 };
 
 const isOperator = (username) => operators.includes(username) || username === SUPER_ADMIN;
-
 const isWhitelisted = (username) => !isWhitelistEnabled || whitelist.includes(username) || isOperator(username);
-
 const isBanned = (username) => banlist.includes(username);
-
 const checkPermission = (msg, permission) => {
   const username = msg.from.username;
   if (isBanned(username)) {
@@ -265,7 +255,6 @@ const checkPermission = (msg, permission) => {
   }
   return true;
 };
-
 const checkBuffer = (msg) => {
   const now = Date.now();
   const bufferTime = bigBuffer || messageBuffer;
@@ -276,7 +265,6 @@ const checkBuffer = (msg) => {
   }
   return true;
 };
-
 // Start command with buttons
 bot.onText(/\/start/, (msg) => {
   const options = {
@@ -290,7 +278,7 @@ bot.onText(/\/start/, (msg) => {
     msg.chat.id,
     isEnglishMode
       ? "Welcome to the Announcement Bot! Type /help to see available commands."
-      : "Tervetuloa Ilmoitusbottiin! Kirjoita /help nähdäksesi käytettävissä olevat komennot.",
+      : "Tervetuloa Tiedottelijaan! 📣🤖🔊 Kirjoita /help nähdäksesi käytettävissä olevat komennot.",
     options
   );
 });
@@ -315,7 +303,6 @@ Käytettävissä olevat komennot:
   `;
   bot.sendMessage(msg.chat.id, helpText);
 });
-
 bot.onText(/\/ophelp/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   const opHelpText = isEnglishMode ? `

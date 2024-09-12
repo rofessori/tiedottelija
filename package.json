@@ -1,5 +1,23 @@
 {
+  "name": "message-handler-backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "sqlite3": "^5.1.6"
+    "cors": "^2.8.5",
+    "dotenv": "^10.0.0",
+    "express": "^4.20.0",
+    "googleapis": "^92.0.0",
+    "node-cache": "github:node-cache/node-cache",
+    "node-telegram-bot-api": "^0.66.0",
+    "openai": "^4.56.1",
+    "sqlite3": "https://github.com/mapbox/node-sqlite3/tarball/master"
   }
-}
+ }

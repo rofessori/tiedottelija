@@ -45,3 +45,8 @@ tiedottelija.git.bfg-report/
 tmp/
 *.tmp
 *.swp
+
+#skibidi
+reboot.sh.bak
+*.sh.bak
+*.bak

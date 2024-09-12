@@ -1,0 +1,98 @@
+#!/bin/bash
+
+# Source the installation directory
+if [ -f "./install_location.env" ]; then
+    source ./install_location.env
+else
+    echo "Error: install_location.env not found. Please run healthcheck.sh first."
+    exit 1
+fi
+
+# Navigate to the installation directory
+cd "$INSTALL_DIR" || exit 1
+
+# Function to check if a process is running
+is_running() {
+    pgrep -f "$1" >/dev/null
+}
+
+# Function to get the OS type
+get_os_type() {
+    case "$(uname -s)" in
+        Darwin*)    echo "macos" ;;
+        Linux*)     echo "linux" ;;
+        *)          echo "unknown" ;;
+    esac
+}
+
+OS_TYPE=$(get_os_type)
+
+# Stop the existing bot process
+if is_running "node server.js"; then
+    echo "Stopping existing bot process..."
+    if [ "$OS_TYPE" = "macos" ]; then
+        killall node
+    else
+        pkill -f "node server.js"
+    fi
+    sleep 5  # Increased sleep time to ensure process is fully stopped
+fi
+
+# Backup the database
+if [ -f "messages.db" ]; then
+    echo "Backing up the database..."
+    cp messages.db "messages.db.backup-$(date +%Y%m%d-%H%M%S)"
+fi
+
+# Check if Docker is being used
+if [ -f "docker-compose.yml" ]; then
+    echo "Using Docker setup"
+    # Check if Docker daemon is running
+    if ! docker info >/dev/null 2>&1; then
+        echo "Error: Docker daemon is not running. Please start Docker and try again."
+        exit 1
+    fi
+    # If using Docker, restart the containers
+    docker-compose down
+    docker-compose up -d
+else
+    echo "Using non-Docker setup"
+    # If not using Docker, start the bot directly
+    if [ "$OS_TYPE" = "macos" ]; then
+        npm install  # Ensure dependencies are up to date
+        nohup node server.js > bot.log 2>&1 &
+    else
+        npm install  # Ensure dependencies are up to date
+        nohup node server.js > bot.log 2>&1 &
+        disown
+    fi
+fi
+
+# Wait for the bot to start
+echo "Waiting for the bot to start..."
+sleep 15  # Increased sleep time to allow more time for startup
+
+# Check if the bot is running
+if is_running "node server.js"; then
+    echo "Bot has been successfully restarted."
+else
+    echo "Error: Bot failed to start. Checking logs..."
+    tail -n 20 bot.log
+    exit 1
+fi
+
+# Additional checks for Docker setup
+if [ -f "docker-compose.yml" ]; then
+    # Check Docker containers
+    RUNNING_CONTAINERS=$(docker-compose ps --services --filter "status=running" | wc -l)
+    if [ "$RUNNING_CONTAINERS" -eq 0 ]; then
+        echo "Error: No Docker containers are running."
+        echo "Docker Compose Logs:"
+        docker-compose logs
+        exit 1
+    else
+        echo "$RUNNING_CONTAINERS Docker containers are running."
+    fi
+fi
+
+echo "Reboot process completed."

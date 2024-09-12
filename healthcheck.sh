@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This is a healthchecker that also checks for accidental secrets and degraded deps.
+
 # Find the installation directory
 SCRIPT_PATH=$(readlink -f "$0" 2>/dev/null || realpath "$0" 2>/dev/null || echo "$0")
 INSTALL_DIR=$(dirname "$SCRIPT_PATH")
@@ -78,9 +80,52 @@ update_script() {
 
 # Update other scripts
 update_script "check.sh"
-update_script "setup.sh"
-update_script "setup2.sh"
 update_script "reboot.sh"
 update_script "reboot-new.sh"
 
 echo "All scripts have been updated with the correct installation directory."
+
+# Check for updates
+echo "Checking for updates..."
+git fetch origin
+LOCAL=$(git rev-parse HEAD)
+REMOTE=$(git rev-parse @{u})
+if [ $LOCAL != $REMOTE ]; then
+    echo "Updates are available. Please run the install script to update."
+else
+    echo "No updates available."
+fi
+
+# Check if database exists
+if [ -f "$INSTALL_DIR/messages.db" ]; then
+    echo "Database exists."
+else
+    echo "Warning: Database (messages.db) is missing."
+fi
+
+# Check if secrets folder exists
+if [ -d "$INSTALL_DIR/secrets" ]; then
+    echo "Secrets folder exists."
+else
+    echo "Warning: Secrets folder is missing."
+fi
+
+# Check .gitignore for secrets
+if grep -q "secrets/" "$INSTALL_DIR/.gitignore"; then
+    echo ".gitignore contains secrets entry."
+else
+    echo "Warning: .gitignore does not contain secrets entry. Adding it now."
+    echo "secrets/" >> "$INSTALL_DIR/.gitignore"
+fi
+
+# Check for other important files
+important_files=(".env" "docker-compose.yml" "server.js" "package.json" "Dockerfile")
+for file in "${important_files[@]}"; do
+    if [ -f "$INSTALL_DIR/$file" ]; then
+        echo "$file exists."
+    else
+        echo "Warning: $file is missing."
+    fi
+done
+
+echo "Healthcheck completed."

@@ -18,8 +18,12 @@ node_modules/
 dist/
 build/
 
+install_location.env
+
 # Ignore logs
 *.log
+#just making sure
+bot.log 
 logs/
 
 # Ignore macOS-specific files

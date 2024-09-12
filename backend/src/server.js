@@ -3,10 +3,14 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const OpenAI = require('openai');
 const path = require('path');
-const sqlite3 = require('sqlite3').verbose();
+
+//const sqlite3 = require('sqlite3').verbose();
+const messages = [];
+
 // Define paths to store channel and operator data
 const CHANNELS_FILE = path.join(__dirname, 'data', 'channels.json');
 const OPERATORS_FILE = path.join(__dirname, 'data', 'operators.json');
+const QUEUE_FILE = path.join(__dirname, 'data', 'queue.json');
 
 // Ensure data directory exists
 const ensureDataDirectoryExists = () => {
@@ -24,22 +28,6 @@ const openai = new OpenAI({
 });
 
 const bot = new TelegramBot(readSecret(process.env.TELEGRAM_BOT_TOKEN_FILE), { polling: true });
-
-
-// Initialize SQLite database
-const db = new sqlite3.Database('./messages.db', (err) => {
-  if (err) {
-    console.error('Error opening database', err);
-  } else {
-    console.log('Connected to the SQLite database.');
-    db.run(`CREATE TABLE IF NOT EXISTS messages (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      client_id TEXT,
-      message TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
-  }
-});
 
 //messagecount – id values set
 let messageCounter = 0;
@@ -131,8 +119,6 @@ const downloadLibrary = (chatId) => {
   bot.sendDocument(chatId, buffer, { filename: 'message_library.json' });
 };
 
-
-
 const generateAnnouncement = async (message, isRework = false, userId) => {
   let conversation = userConversations.get(userId) || [];
   
@@ -204,35 +190,31 @@ Jos JA VAIN JOS käyttäjä laittaa viestiin tiedon että häneen voi olla yhtey
 
 Muista, että tämä on ILMOITUS opiskelijatapahtumasta. Älä lisää mitään keksittyä tietoa vaan perusta se täydellisesti ja kokonaan siihen tietoon mitä yllä sinulle annettiin tätä koskevaa tapahtumaa varten. Jos alkuperäisessä viestissä ei ole tarpeeksi tai se vaikuttaa enemmänkin pitkältä ajatusten virralta kuin tapahtuman tiedoilta, ilmoita siitä erikseen jotta käyttäjä voi antaa lisätietoja. Tapahtumailmoituksessa on aina oltava ainakin paikka, aika, päivämäärä ja mikä tapahtuman nimi on. jos ilmoitetaan killan kokouksesta, siinä tulisi myös mainita tila, jossa se pidetään.`;
 
-  try {
-    conversation.push({ role: "user", content: prompt });
-    
-    const completion = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",
-      messages: conversation,
-      max_tokens: 500,
-    });
-
-    const response = completion.choices[0].message.content.trim();
-    conversation.push({ role: "assistant", content: response });
-    userConversations.set(userId, conversation);
-
-    // Store the generated message in the database
-    db.run('INSERT INTO messages (client_id, message) VALUES (?, ?)', [userId, response], (err) => {
-      if (err) {
-        console.error('Error storing message in database:', err);
-      }
-    });
-
-    if (response.includes("Lisätietoja tarvitaan") || response.includes("More information needed")) {
-      return { text: response, needsMoreInfo: true };
-    }
-    return { text: response, needsMoreInfo: false };
-  } catch (error) {
-    if (error.code === 'insufficient_quota') {
-      return { text: `Virhe: OpenAI API:n kiintiö ylitetty. Yritä myöhemmin uudelleen tai ota yhteyttä ylläpitäjään.\n\nAlkuperäinen viesti:\n${message}`, needsMoreInfo: false };
-    }
-    throw error;
+try {
+  conversation.push({ role: "user", content: prompt });
+  const completion = await openai.chat.completions.create({
+    model: "gpt-3.5-turbo",
+    messages: conversation,
+    max_tokens: 500,
+  });
+  const response = completion.choices[0].message.content.trim();
+  conversation.push({ role: "assistant", content: response });
+  userConversations.set(userId, conversation);
+  // Store the generated message in memory
+  messages.push({
+    client_id: userId,
+    message: response,
+    timestamp: new Date()
+  });
+  if (response.includes("Lisätietoja tarvitaan") || response.includes("More information needed")) {
+    return { text: response, needsMoreInfo: true };
+  }
+  return { text: response, needsMoreInfo: false };
+} catch (error) {
+  if (error.code === 'insufficient_quota') {
+    return { text: `Virhe: OpenAI API:n kiintiö ylitetty. Yritä myöhemmin uudelleen tai ota yhteyttä ylläpitäjään.\n\nAlkuperäinen viesti:\n${message}`, needsMoreInfo: false };
+  }
+  throw error;
   }
 };
 
@@ -265,6 +247,29 @@ const checkBuffer = (msg) => {
   }
   return true;
 };
+
+// New function to handle the grid menu
+const sendGridMenu = (chatId, announcement, state = 'initial') => {
+  let keyboard;
+  if (state === 'initial') {
+    keyboard = [
+      [{ text: isEnglishMode ? 'Regenerate' : 'Uudelleenluo', callback_data: 'regenerate' }, { text: isEnglishMode ? 'Retranslate' : 'Käännä uudelleen', callback_data: 'retranslate' }],
+      [{ text: isEnglishMode ? 'Give new input' : 'Anna uusi syöte', callback_data: 'new_input' }, { text: isEnglishMode ? 'Shorten' : 'Lyhennä', callback_data: 'shorten' }],
+      [{ text: isEnglishMode ? 'Accept and submit' : 'Hyväksy ja lähetä', callback_data: 'accept' }, { text: isEnglishMode ? 'Cancel' : 'Peruuta', callback_data: 'cancel' }]
+    ];
+  } else if (state === 'processing') {
+    keyboard = [[{ text: isEnglishMode ? 'Processing...' : 'Käsitellään...', callback_data: 'processing' }]];
+  }
+
+  const options = {
+    reply_markup: {
+      inline_keyboard: keyboard
+    }
+  };
+
+  bot.sendMessage(chatId, announcement, options);
+};
+
 // Start command with buttons
 bot.onText(/\/start/, (msg) => {
   const options = {
@@ -303,6 +308,7 @@ Käytettävissä olevat komennot:
   `;
   bot.sendMessage(msg.chat.id, helpText);
 });
+
 bot.onText(/\/ophelp/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   const opHelpText = isEnglishMode ? `
@@ -364,7 +370,7 @@ bot.onText(/\/generate(.*)/, async (msg, match) => {
   }
 });
 
-// Is this ever called?
+// Modify the existing processGenerateCommand function
 const processGenerateCommand = async (msg, userInput) => {
   const userId = msg.from.id;
   try {
@@ -374,22 +380,67 @@ const processGenerateCommand = async (msg, userInput) => {
       bot.sendMessage(msg.chat.id, announcement);
       return;
     }
-    moderationQueue.push({
-      id: msg.message_id,
-      from: msg.from.username,
-      text: announcement,
-      originalInput: userInput,
-      status: 'pending',
-      type: 'generate'
-    });
-
-    bot.sendMessage(msg.chat.id, `${isEnglishMode ? 'Created announcement:' : 'Luotu ilmoitus:'}\n\n${announcement}`);
-    bot.sendMessage(msg.chat.id, isEnglishMode ? `Your announcement will be checked and forwarded by the moderators: ${moderators.join(', ')}` : `Ilmoituksesi tarkistetaan ja välitetään moderaattoreiden toimesta: ${moderators.join(', ')}`);
-    notifyModerationChannel(`${isEnglishMode ? 'New generated announcement for review:' : 'Uusi luotu ilmoitus tarkistettavana:'}\n\n${announcement}`);
+    
+    sendGridMenu(msg.chat.id, announcement);
+    
+    // Store the announcement in a temporary storage
+    userConversations.set(userId, { announcement, originalInput: userInput });
   } catch (error) {
     console.error('Error creating announcement:', error);
     bot.sendMessage(msg.chat.id, isEnglishMode ? "An error occurred while creating the announcement. Please try again later." : "Ilmoituksen luomisessa tapahtui virhe. Yritä myöhemmin uudelleen.");
   }
+};
+
+// New function to handle grid menu actions
+const handleGridMenuAction = async (chatId, action, userId) => {
+  const conversation = userConversations.get(userId);
+  if (!conversation) {
+    bot.sendMessage(chatId, isEnglishMode ? "No active announcement found. Please generate a new one." : "Aktiivista ilmoitusta ei löytynyt. Luo uusi ilmoitus.");
+    return;
+  }
+
+  let { announcement, originalInput } = conversation;
+
+  switch (action) {
+    case 'regenerate':
+      sendGridMenu(chatId, isEnglishMode ? "Regenerating..." : "Luodaan uudelleen...", 'processing');
+      const { text: regeneratedText } = await generateAnnouncement(originalInput, false, userId);
+      announcement = regeneratedText;
+      break;
+    case 'retranslate':
+      sendGridMenu(chatId, isEnglishMode ? "Retranslating..." : "Käännetään uudelleen...", 'processing');
+      const { text: retranslatedText } = await generateAnnouncement(announcement, false, userId);
+      announcement = retranslatedText;
+      break;
+    case 'new_input':
+      bot.sendMessage(chatId, isEnglishMode ? "Please provide new input for the announcement:" : "Anna uusi syöte ilmoitukselle:");
+      return;
+    case 'shorten':
+      sendGridMenu(chatId, isEnglishMode ? "Shortening..." : "Lyhennetään...", 'processing');
+      const { text: shortenedText } = await generateAnnouncement(announcement, true, userId);
+      announcement = shortenedText;
+      break;
+    case 'accept':
+      moderationQueue.push({
+        id: getNextMessageId(),
+        from: userId,
+        text: announcement,
+        originalInput: originalInput,
+        status: 'pending',
+        type: 'generate'
+      });
+      bot.sendMessage(chatId, isEnglishMode ? "Announcement submitted for moderation." : "Ilmoitus lähetetty tarkistettavaksi.");
+      notifyModerationChannel({ chat: { id: chatId } }, isEnglishMode ? 'New generated announcement for review:' : 'Uusi luotu ilmoitus tarkistettavana:' + '\n\n' + announcement);
+      userConversations.delete(userId);
+      return;
+    case 'cancel':
+      bot.sendMessage(chatId, isEnglishMode ? "Announcement cancelled." : "Ilmoitus peruutettu.");
+      userConversations.delete(userId);
+      return;
+  }
+
+  userConversations.set(userId, { announcement, originalInput });
+  sendGridMenu(chatId, announcement);
 };
 
 // Announce command for submitting ready-made announcements
@@ -432,7 +483,9 @@ const notifyModerationChannel = (msg, message) => {
         ]
       }
     };
-    bot.sendMessage(MODERATION_CHANNEL_ID, message, options).catch(error => {
+    bot.sendMessage(MODERATION_CHANNEL_ID, message, options).then(() => {
+      saveQueue();  // Save the queue after successfully sending the message
+    }).catch(error => {
       console.error('Error sending message to moderation channel:', error);
       bot.sendMessage(msg.chat.id, isEnglishMode ? 
         "Error: Unable to send message to moderation channel. Please check the channel ID and bot permissions." : 
@@ -492,12 +545,14 @@ bot.onText(/\/togglelibrary/, (msg) => {
   isLibraryEnabled = !isLibraryEnabled;
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Message library is now ${isLibraryEnabled ? 'enabled' : 'disabled'}.` : `Viestikirjasto on nyt ${isLibraryEnabled ? 'käytössä' : 'pois käytöstä'}.`);
 });
+
 bot.onText(/\/renamelibrary (.+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
   const newName = match[1];
   renameLibrary(newName);
   bot.sendMessage(msg.chat.id, isEnglishMode ? `Library renamed to ${newName}` : `Kirjasto uudelleennimetty: ${newName}`);
 });
+
 bot.onText(/\/downloadlibrary/, (msg) => {
   if (!checkPermission(msg, 'operator')) return;
   downloadLibrary(msg.chat.id);
@@ -558,24 +613,6 @@ ${item.text}
     });
   }
 });
-
-const groupMessages = (messages, groupSize = 5) => {
-  const groupedMessages = [];
-  for (let i = 0; i < messages.length; i += groupSize) {
-    groupedMessages.push(messages.slice(i, i + groupSize).join('\n\n'));
-  }
-  return groupedMessages;
-};
-/* 
-// Use this function when sending multiple messages!
-const sendGroupedMessages = (chatId, messages) => {
-  const groupedMessages = groupMessages(messages);
-  groupedMessages.forEach((group, index) => {
-    bot.sendMessage(chatId, `Group ${index + 1}:\n\n${group}`);
-  });
-};
-*/
-
 
 bot.onText(/\/buffer (\d+)/, (msg, match) => {
   if (!checkPermission(msg, 'operator')) return;
@@ -669,71 +706,35 @@ bot.on('callback_query', async (callbackQuery) => {
   const chatId = msg.chat.id;
   const userId = callbackQuery.from.id;
 
-  if (action === 'generate') {
+  if (['regenerate', 'retranslate', 'new_input', 'shorten', 'accept', 'cancel'].includes(action)) {
+    handleGridMenuAction(chatId, action, userId);
+  } else if (action === 'generate') {
     bot.answerCallbackQuery(callbackQuery.id);
     bot.sendMessage(chatId, isEnglishMode ? "Provide an event description to create an announcement:" : "Anna tapahtuman kuvaus luodaksesi ilmoituksen:");
-    // Additional logic to handle generate request
-
   } else if (action === 'announce') {
     bot.answerCallbackQuery(callbackQuery.id);
     bot.sendMessage(chatId, isEnglishMode ? "Provide the event announcement for review:" : "Anna tapahtuman ilmoitus tarkastettavaksi:");
-    // Additional logic to handle announce request
-
   } else if (action === 'help') {
-    bot.answerCallbackQuery(callbackQuery.id);
-    const helpText = isEnglishMode ? `
-Available commands:
-/start - Start the bot
-/help - Show this help message
-/announce - Submit a ready-made announcement for review
-/generate <description> - Create an announcement using GPT-3
-/sourcecode - Show link to bot's source code
-/clearmemory - Clear your conversation history with the bot
-` : `
-Käytettävissä olevat komennot:
-/start - Käynnistä botti
-/help - Näytä tämä ohjeviesti
-/announce - Lähetä valmis ilmoitus tarkastettavaksi
-/generate <kuvaus> - Luo ilmoitus GPT-3:n avulla
-/sourcecode - Näytä linkki botin lähdekoodiin 
-/clearmemory - Tyhjennä keskusteluhistoriasi botin kanssa
-`;
-    bot.sendMessage(chatId, helpText);
-  }
-
-  if (action.startsWith('approve_')) {
-    const messageId = parseInt(action.split('_')[1]);
-    const queueItem = moderationQueue.find(item => item.id === messageId);
-    if (queueItem) {
-      queueItem.status = 'approved';
-      bot.sendMessage(TELEGRAM_CHANNEL_ID, queueItem.text);
-      bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement approved and sent!" : "Ilmoitus hyväksytty ja lähetetty!" });
-    }
-  } else if (action.startsWith('edit_')) {
-    const messageId = parseInt(action.split('_')[1]);
-    bot.answerCallbackQuery(callbackQuery.id);
-    bot.sendMessage(chatId, isEnglishMode ? "Write new text for the announcement:" : "Kirjoita uusi teksti ilmoitukselle:");
-    bot.once('message', async (editMsg) => {
-      const queueItem = moderationQueue.find(item => item.id === messageId);
-      if (queueItem) {
-        queueItem.text = editMsg.text;
-        bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
-        notifyModerationChannel(msg, isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
-      }
-    });
-  } else if (action === 'approve' || action === 'reject' || action === 'edit' || action === 'regenerate' || action === 'shorten') {
+    // Existing help message code...
+  } else if (action.startsWith('approve_') || action.startsWith('edit_') || ['approve', 'reject', 'edit', 'regenerate', 'shorten'].includes(action)) {
     // Handle moderation actions
-    const queueItem = moderationQueue.find(item => item.text === msg.text.split('\n\n')[1]);
+    const queueItem = moderationQueue.find(item => item.id === parseInt(action.split('_')[1]) || item.text === msg.text.split('\n\n')[1]);
     if (queueItem) {
-      switch (action) {
+      switch (action.split('_')[0]) {
         case 'approve':
           queueItem.status = 'approved';
           bot.sendMessage(TELEGRAM_CHANNEL_ID, queueItem.text);
           bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement approved and sent!" : "Ilmoitus hyväksytty ja lähetetty!" });
+          addToLibrary(queueItem);
+          moderationQueue = moderationQueue.filter(item => item.id !== queueItem.id);
+          saveQueue();
           break;
         case 'reject':
           queueItem.status = 'rejected';
           bot.answerCallbackQuery(callbackQuery.id, { text: isEnglishMode ? "Announcement rejected." : "Ilmoitus hylätty." });
+          addToLibrary(queueItem);
+          moderationQueue = moderationQueue.filter(item => item.id !== queueItem.id);
+          saveQueue();
           break;
         case 'edit':
           bot.answerCallbackQuery(callbackQuery.id);
@@ -743,6 +744,7 @@ Käytettävissä olevat komennot:
             bot.sendMessage(chatId, isEnglishMode ? "Announcement updated." : "Ilmoitus päivitetty.");
             notifyModerationChannel(msg, isEnglishMode ? `Updated announcement:\n\n${queueItem.text}` : `Päivitetty ilmoitus:\n\n${queueItem.text}`);
           });
+          break;
           break;
         case 'regenerate':
           bot.answerCallbackQuery(callbackQuery.id);
@@ -762,6 +764,19 @@ Käytettävissä olevat komennot:
     }
   }
 });
+
+// New function to save the queue
+const saveQueue = () => {
+  fs.writeFileSync(QUEUE_FILE, JSON.stringify(moderationQueue), 'utf8');
+};
+
+// Load the queue when the bot starts
+try {
+  const queueData = fs.readFileSync(QUEUE_FILE, 'utf8');
+  moderationQueue = JSON.parse(queueData);
+} catch (error) {
+  console.error('Error loading moderation queue:', error);
+}
 
 //bätängs
 bot.onText(/\/sudosu/, (msg) => {
@@ -806,14 +821,3 @@ bot.on('error', (error) => {
 
 // Start the bot
 console.log('Bot is running...');
-
-// Close the database connection when the bot is terminated
-process.on('SIGINT', () => {
-  db.close((err) => {
-    if (err) {
-      console.error(err.message);
-    }
-    console.log('Closed the database connection.');
-    process.exit(0);
-  });
-});
